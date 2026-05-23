@@ -1,3 +1,5 @@
+# Running on http://127.0.0.1:5000
+
 # 上傳更新
   git add .
   git commit -m "你要講的話"
@@ -8,4 +10,3 @@
 
 # python XXX.py 跑主程式(目前是app.py)
   Ctrl + C 關閉
-

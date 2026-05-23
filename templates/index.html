@@ -67,10 +67,10 @@
         <input type="submit" value="開始生成情緒路徑">
     </form>
 
-    {% if map_html %}
+{% if map_html %}
         <div class="dashboard">
             <h3>🧭 導航模式：{{ mode_name }}</h3>
-            <p style="font-size: 13px; color: #555; margin: 5px 0 12px 0;">已為您規劃專屬心境路線，並完成台灣市區步速與停等紅綠燈修正。</p>
+            <p style="font-size: 13px; color: #555; margin: 5px 0 12px 0;">已為您規劃順路且流暢的心境路線。</p>
             <div class="stat-grid">
                 <div class="stat-box">
                     <div class="stat-val">{{ distance }} <span style="font-size: 12px;">km</span></div>
@@ -81,6 +81,17 @@
                     <div class="stat-lbl">步行時間</div>
                 </div>
             </div>
+
+            {% if waypoints %}
+                <div style="margin-top: 20px; border-top: 1px dashed #2bc4b6; padding-top: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #1e8277; font-size: 14px;">✨ 途中順路探訪的療癒站點：</h4>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #2c3e50; line-height: 1.6;">
+                        {% for wp in waypoints %}
+                            <li><b>{{ wp.name }}</b></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
         </div>
     {% endif %}
 </div>

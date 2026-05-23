@@ -21,9 +21,12 @@ def search():
     if not start_coords or not end_coords:
         return render_template('index.html', error=f"找不到「{start_place}」或「{end_place}」的位置，請重新輸入！")
     
-    # 💡 配合新演算法：傳入起點與終點座標，進行順向特徵點排序
-    waypoints = get_mood_waypoints(start_coords, end_coords, mood, social_energy)
-    route_data = get_route_matrix_v2(start_coords, end_coords, waypoints)
+    # 1. 抓取包含地名的中繼點字典列表
+    waypoint_details = get_mood_waypoints(start_coords, end_coords, mood, social_energy)
+    
+    # 2. 提取出純座標陣列餵給 OSRM
+    waypoints_coords = [wp['coords'] for wp in waypoint_details]
+    route_data = get_route_matrix_v2(start_coords, end_coords, waypoints_coords)
     
     if route_data:
         raw_distance = route_data['distance']
@@ -40,7 +43,9 @@ def search():
             mode_name = "命定十字路口"
             
         minutes_duration = max(1, round(adjusted_duration / 60))
-        map_html = build_soul_map(route_data['geometry'], social_energy)
+        
+        # 💡 🔥 注意這行：必須要傳入三個參數！
+        map_html = build_soul_map(route_data['geometry'], social_energy, waypoint_details)
         
         return render_template(
             'index.html',
@@ -51,7 +56,8 @@ def search():
             start_place=start_place,
             end_place=end_place,
             social_energy=social_energy,
-            mood=mood
+            mood=mood,
+            waypoints=waypoint_details
         )
     else:
         return render_template('index.html', error="無法串聯情緒路線，請縮短兩地距離或更換地點！")
