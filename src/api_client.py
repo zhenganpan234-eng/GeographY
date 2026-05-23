@@ -1,51 +1,100 @@
 import requests
-
-import requests
+import math
 
 def get_geocode(address):
     """
-    1. 地名解析 (嚴格遵循規定：使用 Nominatim API)
+    1. 地名解析 (Nominatim API)
     將文字地名轉換為 [經度, 緯度] 數字座標
     """
     url = "https://nominatim.openstreetmap.org/search"
-    
-    # 💡 修正封鎖與搜尋問題的核心 1：換一個更像真實瀏覽器的 User-Agent，避免被官方阻擋
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
-    
-    # 💡 修正核心 2：不要用空格字串！改用 Nominatim 官方推薦的「結構化搜尋」
-    # 限制搜尋範圍在「台灣 (tw)」，這樣使用者直接打「羅東車站」或「台北車站」就絕對找得到！
     params = {
         'q': address,
-        'countrycodes': 'tw',  # 嚴格限制在台灣地區搜尋
+        'countrycodes': 'tw',
         'format': 'json',
         'limit': 1,
-        'accept-language': 'zh-TW' # 強制要求繁體中文回傳
+        'accept-language': 'zh-TW'
     }
-    
     try:
         response = requests.get(url, headers=headers, params=params)
         if response.status_code == 200 and len(response.json()) > 0:
             result = response.json()[0]
-            lon = float(result['lon'])
-            lat = float(result['lat'])
-            print(f"[Nominatim定位成功] 輸入: {address} -> 經度:{lon}, 緯度:{lat}")
-            return [lon, lat]
-        else:
-            print(f"[Nominatim定位失敗] API查無此地名: {address}")
+            return [float(result['lon']), float(result['lat'])]
     except Exception as e:
-        print(f"[錯誤] Nominatim 連線失敗: {e}")
+        print(f"[錯誤] Nominatim 定位失敗: {e}")
     return None
 
 
-def get_route_matrix(start_coords, end_coords):
+def get_mood_waypoints(start_coords, end_coords, mood, social_energy):
     """
-    2. 步行路由規劃 (OSRM API)
-    取得起點到終點沿著馬路走的真實步行軌跡 (GeoJSON) 與距離
-    coords 格式: [經度, 緯度]
+    2. 順向特徵點搜尋演算法 (透過幾何距離排序，全面消除回頭路折返感)
     """
-    url = f"http://router.project-osrm.org/route/v1/foot/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    url = "https://nominatim.openstreetmap.org/search"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    
+    if int(social_energy) < 40:
+        search_query = "公園"
+    else:
+        if mood == "文青":
+            search_query = "書店"
+        elif mood == "社交":
+            search_query = "商圈"
+        else:
+            search_query = "咖啡廳"
+            
+    # 限制在終點（目的地）周邊方圓 2 公里內搜尋
+    lon_e, lat_e = end_coords[0], end_coords[1]
+    left, right = lon_e - 0.02, lon_e + 0.02
+    bottom, top = lat_e - 0.02, lat_e + 0.02
+    
+    params = {
+        'q': search_query,
+        'countrycodes': 'tw',
+        'viewbox': f"{left},{top},{right},{bottom}",
+        'bounded': 1,
+        'format': 'json',
+        'limit': 3,
+        'accept-language': 'zh-TW'
+    }
+    
+    waypoints = []
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code == 200:
+            results = response.json()
+            raw_pts = []
+            for item in results:
+                raw_pts.append([float(item['lon']), float(item['lat'])])
+            
+            # 💡 核心演算法：計算各個中繼點與「出發起點」的直線距離
+            lon_s, lat_s = start_coords[0], start_coords[1]
+            
+            # 用簡單的歐幾里得幾何公式計算距離，並綁定座標進行排序
+            def calc_dist(pt):
+                return math.sqrt((pt[0] - lon_s)**2 + (pt[1] - lat_s)**2)
+            
+            # 依據到起點的距離「由近到遠」自動排序！
+            waypoints = sorted(raw_pts, key=calc_dist)
+            
+            print(f"[順向演算法] 成功抓取並排序了 {len(waypoints)} 個『{search_query}』站點，確保無回頭路。")
+    except Exception as e:
+        print(f"[錯誤] 搜尋中繼點失敗: {e}")
+        
+    return waypoints
+
+
+def get_route_matrix_v2(start_coords, end_coords, waypoints):
+    """
+    3. 多點步行路由引擎 (OSRM API)
+    """
+    all_points = [start_coords] + waypoints + [end_coords]
+    coord_string = ";".join([f"{pt[0]},{pt[1]}" for pt in all_points])
+    
+    url = f"http://router.project-osrm.org/route/v1/foot/{coord_string}"
     params = {
         'overview': 'full',
         'geometries': 'geojson'
@@ -56,16 +105,9 @@ def get_route_matrix(start_coords, end_coords):
         data = response.json()
         if data.get('code') == 'Ok':
             route = data['routes'][0]
-            geometry = route['geometry']['coordinates']
-            distance = route['distance']
-            duration = route['duration']
-            return {"geometry": geometry, "distance": distance, "duration": duration}
+            return {
+                "geometry": route['geometry']['coordinates'],
+                "distance": route['distance'],
+                "duration": route['duration']
+            }
     return None
-
-
-def get_mood_places(mood, social_energy):
-    """
-    3. 依情緒周邊搜尋 (預留未來演算法擴充使用)
-    """
-    # 這是先前測試保留的函式，先放著不動它
-    return []

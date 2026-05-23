@@ -1,28 +1,101 @@
-<form action="/search" method="POST">
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>SoulPath - 情緒導航與療癒探索系統</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f0f3f5; display: flex; height: 100vh; overflow: hidden; }
+        /* 左側控制面板與數據區 */
+        .sidebar { width: 380px; background: white; box-shadow: 2px 0 10px rgba(0,0,0,0.1); padding: 25px; display: flex; flex-direction: column; overflow-y: auto; z-index: 10; }
+        h2 { color: #2c3e50; margin-top: 0; border-bottom: 2px solid #2bc4b6; padding-bottom: 10px; font-size: 24px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; color: #34495e; font-size: 14px; }
+        input[type="text"], select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccd1d9; box-sizing: border-box; font-size: 14px; }
+        input[type="range"] { width: 100%; margin: 8px 0; }
+        input[type="submit"] { width: 100%; background-color: #2bc4b6; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        input[type="submit"]:hover { background-color: #24b0a3; }
+        
+        /* 📊 數據儀表板樣式 */
+        .dashboard { background: #eef9f8; border-left: 4px solid #2bc4b6; padding: 15px; border-radius: 6px; margin-top: 20px; }
+        .dashboard h3 { margin-top: 0; color: #1e8277; font-size: 16px; }
+        .stat-grid { display: flex; justify-content: space-between; margin-top: 10px; }
+        .stat-box { background: white; padding: 10px; border-radius: 4px; width: 45%; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .stat-val { font-size: 20px; font-weight: bold; color: #2c3e50; }
+        .stat-lbl { font-size: 12px; color: #7f8c8d; margin-top: 3px; }
+        
+        /* 右側滿版地圖區 */
+        .map-container { flex: 1; position: relative; background: #e5e9f0; }
+        .empty-map-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #7f8c8d; text-align: center; font-size: 18px; }
+        .error-msg { color: #e74c3c; background: #fde8e7; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>🧩 SoulPath 導航面板</h2>
+    
+    {% if error %}
+        <div class="error-msg">{{ error }}</div>
+    {% endif %}
+    
+    <form action="/search" method="POST">
         <div class="form-group">
             <label for="start_place">📍 散步出發地:</label>
-            <input type="text" id="start_place" name="start_place" placeholder="例如：台北車站 或 清華大學" required style="width: 90%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <input type="text" id="start_place" name="start_place" value="{{ start_place if start_place else '' }}" placeholder="輸入起點，如：羅東車站" required>
         </div>
 
         <div class="form-group">
             <label for="end_place">🏁 靈魂目的地:</label>
-            <input type="text" id="end_place" name="end_place" placeholder="例如：台北101 或 新竹動物園" required style="width: 90%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <input type="text" id="end_place" name="end_place" value="{{ end_place if end_place else '' }}" placeholder="輸入終點，如：羅東林業園區" required>
         </div>
 
         <div class="form-group">
-            <label for="social_energy">⚡ 社交能量值 (0 ~ 100):</label>
-            <input type="range" id="social_energy" name="social_energy" min="0" max="100" value="80" oninput="this.nextElementSibling.value = this.value">
-            <output>80</output>
+            <label for="social_energy">⚡ 當前社交能量值 (0 ~ 100):</label>
+            <input type="range" id="social_energy" name="social_energy" min="0" max="100" value="{{ social_energy if social_energy else '80' }}" oninput="this.nextElementSibling.value = this.value">
+            <output>{{ social_energy if social_energy else '80' }}</output>
         </div>
 
         <div class="form-group">
-            <label for="mood">🎭 當前情緒偏好:</label>
-            <select id="mood" name="mood" style="padding: 8px; border-radius: 4px;">
-                <option value="放鬆">放鬆 (咖啡廳)</option>
-                <option value="文青">文青 (書店)</option>
-                <option value="社交">社交 (商圈)</option>
+            <label for="mood">🎭 心境氛圍選擇:</label>
+            <select id="mood" name="mood">
+                <option value="放鬆" {% if mood == '放鬆' %}selected{% endif %}>放鬆 (漫步咖啡廳)</option>
+                <option value="文青" {% if mood == '文青' %}selected{% endif %}>文青 (探索獨立書店)</option>
+                <option value="社交" {% if mood == '社交' %}selected{% endif %}>社交 (熱鬧精華商圈)</option>
             </select>
         </div>
 
-        <input type="submit" value="啟動動態靈魂導航" style="margin-top: 10px;">
+        <input type="submit" value="開始生成情緒路徑">
     </form>
+
+    {% if map_html %}
+        <div class="dashboard">
+            <h3>🧭 導航模式：{{ mode_name }}</h3>
+            <p style="font-size: 13px; color: #555; margin: 5px 0 12px 0;">已為您規劃專屬心境路線，並完成台灣市區步速與停等紅綠燈修正。</p>
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-val">{{ distance }} <span style="font-size: 12px;">km</span></div>
+                    <div class="stat-lbl">預估路程</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val">{{ duration }} <span style="font-size: 12px;">分鐘</span></div>
+                    <div class="stat-lbl">步行時間</div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<div class="map-container">
+    {% if map_html %}
+        {{ map_html|safe }}
+    {% else: %}
+        <div class="empty-map-text">
+            🌐<br><br>
+            請在左側輸入起終點並設定社交能量，<br>
+            系統將在此為您實時渲染客製化散步地圖。
+        </div>
+    {% endif %}
+</div>
+
+</body>
+</html>
