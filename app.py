@@ -1,33 +1,39 @@
-# 網頁的啟動核心
 from flask import Flask, render_template, request
-# 從 src 資料夾裡的 api_client.py 引入你寫好的 get_mood_places 函式
-from src.api_client import get_mood_places
+# 同時引入地名解析與路由規劃功能
+from src.api_client import get_route_matrix, get_geocode
+from src.map_builder import build_soul_map
 
 app = Flask(__name__)
 
-# 1. 首頁路由：當使用者打開網頁時，顯示 index.html 畫面
 @app.route('/')
 def home():
     return render_template('index.html')
 
-# 2. 搜尋路由：接收網頁表單傳過來的數據
 @app.route('/search', methods=['POST'])
 def search():
-    # 抓取網頁上拉桿和選單的值
+    # 1. 接收網頁輸入的文字與數值
+    start_place = request.form.get('start_place')
+    end_place = request.form.get('end_place')
     social_energy = request.form.get('social_energy')
     mood = request.form.get('mood')
     
-    # 呼叫 Peter 寫的後端演算法，去跟 Nominatim API 要資料
-    candidates = get_mood_places(mood, social_energy)
+    # 2. 透過 Peter 寫的 Nominatim 功能，將文字轉成經緯度數字
+    start_coords = get_geocode(start_place)
+    end_coords = get_geocode(end_place)
     
-    # 先將抓到的資料結果直接印在網頁上，方便我們檢查資料結構
-    return {
-        "status": "成功接收數據！",
-        "user_mood": mood,
-        "user_social_energy": social_energy,
-        "nominatim_results": candidates
-    }
+    # 防呆機制：如果隨便亂打字找不到地方，回傳錯誤訊息
+    if not start_coords or not end_coords:
+        return f"<h3>❌ 定位失敗！</h3><p>找不到「{start_place}」或「{end_place}」的具體位置，請重新輸入正確的地名或學校名稱！</p><a href='/'>返回首頁</a>"
+    
+    # 3. 呼叫 OSRM API 取得這兩點之間真實的步行馬路軌跡
+    route_data = get_route_matrix(start_coords, end_coords)
+    
+    if route_data:
+        # 4. 根據軌跡與社交能量，繪製專屬風格的互動地圖
+        map_html = build_soul_map(route_data['geometry'], social_energy)
+        return map_html
+    else:
+        return "<h3>❌ 路由失敗！</h3><p>OSRM 路由引擎無法在兩地之間規劃步行路線（可能距離太遠或跨海）。</p><a href='/'>返回首頁</a>"
 
 if __name__ == '__main__':
-    # 啟動本地測試伺服器，debug=True 代表改程式網頁會自動重新整理
     app.run(debug=True, port=5000)

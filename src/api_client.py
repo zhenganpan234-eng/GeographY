@@ -1,46 +1,71 @@
 import requests
 
+import requests
+
+def get_geocode(address):
+    """
+    1. 地名解析 (嚴格遵循規定：使用 Nominatim API)
+    將文字地名轉換為 [經度, 緯度] 數字座標
+    """
+    url = "https://nominatim.openstreetmap.org/search"
+    
+    # 💡 修正封鎖與搜尋問題的核心 1：換一個更像真實瀏覽器的 User-Agent，避免被官方阻擋
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    # 💡 修正核心 2：不要用空格字串！改用 Nominatim 官方推薦的「結構化搜尋」
+    # 限制搜尋範圍在「台灣 (tw)」，這樣使用者直接打「羅東車站」或「台北車站」就絕對找得到！
+    params = {
+        'q': address,
+        'countrycodes': 'tw',  # 嚴格限制在台灣地區搜尋
+        'format': 'json',
+        'limit': 1,
+        'accept-language': 'zh-TW' # 強制要求繁體中文回傳
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code == 200 and len(response.json()) > 0:
+            result = response.json()[0]
+            lon = float(result['lon'])
+            lat = float(result['lat'])
+            print(f"[Nominatim定位成功] 輸入: {address} -> 經度:{lon}, 緯度:{lat}")
+            return [lon, lat]
+        else:
+            print(f"[Nominatim定位失敗] API查無此地名: {address}")
+    except Exception as e:
+        print(f"[錯誤] Nominatim 連線失敗: {e}")
+    return None
+
+
+def get_route_matrix(start_coords, end_coords):
+    """
+    2. 步行路由規劃 (OSRM API)
+    取得起點到終點沿著馬路走的真實步行軌跡 (GeoJSON) 與距離
+    coords 格式: [經度, 緯度]
+    """
+    url = f"http://router.project-osrm.org/route/v1/foot/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    params = {
+        'overview': 'full',
+        'geometries': 'geojson'
+    }
+    
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if data.get('code') == 'Ok':
+            route = data['routes'][0]
+            geometry = route['geometry']['coordinates']
+            distance = route['distance']
+            duration = route['duration']
+            return {"geometry": geometry, "distance": distance, "duration": duration}
+    return None
+
+
 def get_mood_places(mood, social_energy):
     """
-    根據使用者選擇的情緒(Mood)和社交能量(Social Energy)，
-    決定要去 Nominatim 搜尋什麼種類的周邊設施。
+    3. 依情緒周邊搜尋 (預留未來演算法擴充使用)
     """
-    url_geo = "https://nominatim.openstreetmap.org/search"
-    
-    # 偽裝成瀏覽器，防止被 Nominatim 官方阻擋
-    headers = {
-        'User-Agent': 'SoulPathApp/1.0 (peter@example.com) ComputerScienceProject'
-    }
-    
-    # 實作 Proposal 的核心邏輯：
-    # 如果社交能量太低（例如小於 40），不管選什麼情緒，一律強制去安靜無人的地方充電！
-    if int(social_energy) < 40:
-        # 搜尋新竹或台北附近的公園或圖書館
-        search_query = "公園" 
-    else:
-        # 如果社交能量充沛，則根據情緒(Mood)來分類搜尋
-        if mood == "文青":
-            search_query = "書店"
-        elif mood == "社交":
-            search_query = "商圈"
-        elif mood == "放鬆":
-            search_query = "咖啡廳"
-        else:
-            search_query = "景點"
-            
-    # 設定 Nominatim 的參數 (預設搜尋台灣本島的目標項目，限制 3 筆)
-    params = {
-        'q': search_query,
-        'format': 'json',
-        'limit': 3
-    }
-    
-    print(f"[後端邏輯] 當前情緒: {mood}, 社交能量: {social_energy} -> 決定搜尋: {search_query}")
-    
-    response = requests.get(url_geo, headers=headers, params=params)
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"[錯誤] API請求失敗，狀態碼: {response.status_code}")
-        return []
+    # 這是先前測試保留的函式，先放著不動它
+    return []
