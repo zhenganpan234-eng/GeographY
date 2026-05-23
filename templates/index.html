@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>SoulPath - 情緒導航與療癒探索系統</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; background-color: #f4f7f6; }
+        .container { max-width: 600px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="submit"] { background-color: #2bc4b6; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🧩 SoulPath 系統核心測試面板</h2>
+    <p>試著調整下方的社交能量與情緒，看看後端演算法如何改變篩選目標！</p>
+    
+    <form action="/search" method="POST">
+        <div class="form-group">
+            <label for="social_energy">⚡ 社交能量值 (0 ~ 100):</label>
+            <input type="range" id="social_energy" name="social_energy" min="0" max="100" value="80" oninput="this.nextElementSibling.value = this.value">
+            <output>80</output>
+        </div>
+
+        <div class="form-group">
+            <label for="mood">🎭 當前情緒偏好:</label>
+            <select id="mood" name="mood">
+                <option value="放鬆">放鬆 (咖啡廳)</option>
+                <option value="文青">文青 (書店)</option>
+                <option value="社交">社交 (商圈)</option>
+            </select>
+        </div>
+
+        <input type="submit" value="啟動靈魂導航">
+    </form>
+</div>
+
+</body>
+</html>
