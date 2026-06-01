@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>SoulPath — 收藏路線</title>
+    <style>
+        :root {
+            --teal: #2bc4b6; --teal-dark: #1fa99c;
+            --soft-bg: #f7f5f2; --card-bg: #ffffff;
+            --text-main: #2c3e50; --text-muted: #7f8c8d;
+            --border: #e8e4df; --danger: #e74c3c;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--soft-bg); color: var(--text-main); margin: 0; padding: 0; }
+
+        .topbar {
+            background: white; box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+            padding: 14px 28px; display: flex; align-items: center; gap: 16px;
+        }
+        .topbar a { text-decoration: none; color: var(--teal-dark); font-weight: 600; font-size: 14px; }
+        .topbar-title { font-size: 18px; font-weight: 700; }
+
+        .container { max-width: 760px; margin: 32px auto; padding: 0 16px; }
+        h1 { font-size: 22px; margin-bottom: 20px; }
+
+        .flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+        .flash.success { background: #eafaf1; color: #1e8449; border-left: 3px solid var(--teal); }
+        .flash.info    { background: #eaf4fb; color: #1a5276; border-left: 3px solid #3498db; }
+
+        .route-card {
+            background: white; border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 18px 20px; margin-bottom: 14px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+        }
+        .route-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .route-title { font-size: 15px; font-weight: 700; }
+        .route-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .route-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+        .tag {
+            background: #eef9f8; color: #1a7a72;
+            border-radius: 6px; padding: 3px 10px;
+            font-size: 11px; font-weight: 600;
+        }
+        .tag.mood { background: #f0eaf7; color: #7d3c98; }
+        .waypoints-mini { font-size: 12px; color: #888; margin-top: 10px; }
+
+        .btn-reuse {
+            display: inline-block; text-decoration: none;
+            background: var(--teal); color: white;
+            padding: 7px 14px; border-radius: 6px;
+            font-size: 12px; font-weight: 600;
+        }
+        .btn-delete {
+            background: none; border: 1px solid #ddd; color: #aaa;
+            padding: 7px 12px; border-radius: 6px;
+            font-size: 12px; cursor: pointer;
+        }
+        .btn-delete:hover { border-color: var(--danger); color: var(--danger); }
+        .action-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+
+        .empty { text-align: center; color: var(--text-muted); padding: 60px 0; font-size: 16px; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <a href="/">← 返回規劃路線</a>
+    <div class="topbar-title">⭐ 收藏路線</div>
+</div>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    {% if routes %}
+        <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">
+            共收藏了 {{ routes|length }} 條路線
+        </p>
+        {% for r in routes %}
+        <div class="route-card">
+            <div class="route-header">
+                <div>
+                    <div class="route-title">{{ r.start }} → {{ r.end }}</div>
+                    <div class="route-meta">收藏於 {{ r.saved_at }}</div>
+                </div>
+            </div>
+            <div class="route-tags">
+                <span class="tag mood">{{ r.mood }}</span>
+                <span class="tag">⚡ 能量 {{ r.social_energy }}</span>
+                <span class="tag">🛤️ {{ r.distance_km }} km</span>
+                <span class="tag">⏱️ {{ r.duration_min }} 分鐘</span>
+            </div>
+            {% if r.waypoints %}
+            <div class="waypoints-mini">
+                途中站點：{{ r.waypoints | join('、') }}
+            </div>
+            {% endif %}
+            <div class="action-row">
+                <a class="btn-reuse"
+                    href="/?start={{ r.start | urlencode }}&end={{ r.end | urlencode }}&mood={{ r.mood }}&energy={{ r.social_energy }}">
+                    🔄 重新規劃此路線
+                </a>
+                <form action="/delete/{{ r.id }}" method="POST" style="margin:0;">
+                    <button type="submit" class="btn-delete"
+                        onclick="return confirm('確定要刪除此路線嗎？')">🗑️ 刪除</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty">
+            📭<br><br>
+            你還沒有收藏任何路線。<br>
+            先去規劃一條屬於自己的情緒路線吧！
+        </div>
+    {% endif %}
+</div>
+
+</body>
+</html>

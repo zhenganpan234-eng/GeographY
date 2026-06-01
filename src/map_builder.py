@@ -1,50 +1,127 @@
 import folium
 
-def build_soul_map(route_geometry, social_energy, waypoint_details):
+# ── 每個 mood 對應的地圖主題設定 ──────────────────────────────────────────
+MOOD_THEMES = {
+    "放鬆": {
+        "tiles": "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        "attr": "&copy; OpenStreetMap &copy; CARTO",
+        "line_color": "#5b8dee",
+        "icon_color": "cadetblue",
+        "icon_name": "leaf",
+    },
+    "文青": {
+        "tiles": "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        "attr": "&copy; OpenStreetMap &copy; CARTO",
+        "line_color": "#9b59b6",
+        "icon_color": "purple",
+        "icon_name": "book",
+    },
+    "探索": {
+        "tiles": "OpenStreetMap",
+        "attr": None,
+        "line_color": "#e67e22",
+        "icon_color": "orange",
+        "icon_name": "search",
+    },
+    "社交": {
+        "tiles": "OpenStreetMap",
+        "attr": None,
+        "line_color": "#ff1a75",
+        "icon_color": "red",
+        "icon_name": "heart",
+    },
+    "療癒": {
+        "tiles": "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        "attr": "&copy; OpenStreetMap &copy; CARTO",
+        "line_color": "#27ae60",
+        "icon_color": "green",
+        "icon_name": "tree-conifer",
+    },
+}
+
+# 社交能量低強制覆蓋為 I 人主題
+I_PERSON_THEME = {
+    "tiles": "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    "attr": "&copy; OpenStreetMap &copy; CARTO",
+    "line_color": "#0055ff",
+    "icon_color": "cadetblue",
+    "icon_name": "eye-close",
+}
+
+
+def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆"):
     """
-    利用 Folium 繪製互動式地圖
-    waypoint_details: 包含篩選後中繼點名稱與座標的 list, 格式如 [{'name': '...', 'coords': [lon, lat]}]
+    利用 Folium 繪製互動式地圖。
+    - 依 mood 和 social_energy 切換地圖主題
+    - 中繼點大頭針帶編號 popup
+    - 起終點清楚標示
     """
     folium_polyline = [[pt[1], pt[0]] for pt in route_geometry]
     center_lat = folium_polyline[0][0]
     center_lon = folium_polyline[0][1]
-    
-    # 根據社交能量決定地圖風格
+
+    # 選擇主題
     if int(social_energy) < 40:
-        map_tiles = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-        map_attr = '&copy; OpenStreetMap &copy; CARTO'
-        line_color = '#0055ff'
-        mode_text = "I人模式：社交安全防護罩防禦中 🛡️"
-        icon_color = 'cadetblue' # 沉靜的藍綠色
+        theme = I_PERSON_THEME
+        mode_text = "I人防護罩模式 🛡️ — 最小人潮暴露路線"
     else:
-        map_tiles = 'OpenStreetMap'
-        map_attr = None
-        line_color = '#ff1a75'
-        mode_text = "偽E人模式：尋找命中注定的擦肩而過 💖"
-        icon_color = 'orange' # 活潑的橘色
-        
-    mymap = folium.Map(location=[center_lat, center_lon], zoom_start=15, tiles=map_tiles, attr=map_attr)
-    
-    # 畫出情緒路線
-    folium.PolyLine(locations=folium_polyline, color=line_color, weight=7, opacity=0.85, popup=mode_text).add_to(mymap)
-    
-    # 1. 標示【相關景點中繼點】的大頭針 (新功能 🌟)
+        theme = MOOD_THEMES.get(mood, MOOD_THEMES["放鬆"])
+        mode_labels = {
+            "放鬆": "放鬆漫步模式 🌿",
+            "文青": "文青探索模式 📚",
+            "探索": "城市探險模式 🗺️",
+            "社交": "命定相遇模式 💫",
+            "療癒": "心靈療癒模式 🌸",
+        }
+        mode_text = mode_labels.get(mood, "SoulPath 模式")
+
+    mymap = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=15,
+        tiles=theme["tiles"],
+        attr=theme.get("attr") or "",
+    )
+
+    # 路線
+    folium.PolyLine(
+        locations=folium_polyline,
+        color=theme["line_color"],
+        weight=7,
+        opacity=0.85,
+        popup=folium.Popup(mode_text, max_width=300),
+        tooltip=mode_text,
+    ).add_to(mymap)
+
+    # 中繼點大頭針
     for idx, wp in enumerate(waypoint_details, 1):
-        # wp['coords'] 是 [lon, lat]，Folium 需要 [lat, lon]
         wp_lat = wp['coords'][1]
         wp_lon = wp['coords'][0]
-        
-        popup_html = f"<b>📍 情緒站點 {idx}: {wp['name']}</b><br><span style='color:#666;'>順路造訪的療癒角落</span>"
-        
+        wp_type = wp.get('type', '')
+        popup_html = (
+            f"<b>📍 情緒站點 {idx}: {wp['name']}</b><br>"
+            f"<span style='color:#888; font-size:12px;'>類型：{wp_type}｜順路療癒角落</span>"
+        )
         folium.Marker(
             location=[wp_lat, wp_lon],
-            popup=folium.Popup(popup_html, max_width=250),
-            # 使用數字標籤讓使用者跟左側列表對照
-            icon=folium.Icon(color=icon_color, icon='heart' if int(social_energy) >= 40 else 'eye-close')
+            popup=folium.Popup(popup_html, max_width=260),
+            tooltip=f"站點 {idx}：{wp['name']}",
+            icon=folium.Icon(color=theme["icon_color"], icon=theme["icon_name"], prefix="glyphicon"),
         ).add_to(mymap)
-    
-    # 2. 起終點 Marker
-    folium.Marker(location=folium_polyline[0], popup="你的出發點", icon=folium.Icon(color='green', icon='play')).add_to(mymap)
-    folium.Marker(location=folium_polyline[-1], popup="靈魂目的地", icon=folium.Icon(color='red', icon='flag')).add_to(mymap)
-    
+
+    # 起點
+    folium.Marker(
+        location=folium_polyline[0],
+        popup="📍 你的出發點",
+        tooltip="出發點",
+        icon=folium.Icon(color='green', icon='play', prefix='glyphicon'),
+    ).add_to(mymap)
+
+    # 終點
+    folium.Marker(
+        location=folium_polyline[-1],
+        popup="🏁 靈魂目的地",
+        tooltip="目的地",
+        icon=folium.Icon(color='red', icon='flag', prefix='glyphicon'),
+    ).add_to(mymap)
+
     return mymap._repr_html_()

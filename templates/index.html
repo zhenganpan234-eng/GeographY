@@ -2,108 +2,400 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>SoulPath - 情緒導航與療癒探索系統</title>
+    <title>SoulPath — 情緒導航與療癒探索系統</title>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f0f3f5; display: flex; height: 100vh; overflow: hidden; }
-        /* 左側控制面板與數據區 */
-        .sidebar { width: 380px; background: white; box-shadow: 2px 0 10px rgba(0,0,0,0.1); padding: 25px; display: flex; flex-direction: column; overflow-y: auto; z-index: 10; }
-        h2 { color: #2c3e50; margin-top: 0; border-bottom: 2px solid #2bc4b6; padding-bottom: 10px; font-size: 24px; }
-        .form-group { margin-bottom: 18px; }
-        label { display: block; font-weight: bold; margin-bottom: 6px; color: #34495e; font-size: 14px; }
-        input[type="text"], select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccd1d9; box-sizing: border-box; font-size: 14px; }
-        input[type="range"] { width: 100%; margin: 8px 0; }
-        input[type="submit"] { width: 100%; background-color: #2bc4b6; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        input[type="submit"]:hover { background-color: #24b0a3; }
-        
-        /* 📊 數據儀表板樣式 */
-        .dashboard { background: #eef9f8; border-left: 4px solid #2bc4b6; padding: 15px; border-radius: 6px; margin-top: 20px; }
-        .dashboard h3 { margin-top: 0; color: #1e8277; font-size: 16px; }
-        .stat-grid { display: flex; justify-content: space-between; margin-top: 10px; }
-        .stat-box { background: white; padding: 10px; border-radius: 4px; width: 45%; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .stat-val { font-size: 20px; font-weight: bold; color: #2c3e50; }
-        .stat-lbl { font-size: 12px; color: #7f8c8d; margin-top: 3px; }
-        
-        /* 右側滿版地圖區 */
+        :root {
+            --teal: #2bc4b6;
+            --teal-dark: #1fa99c;
+            --soft-bg: #f7f5f2;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --border: #e8e4df;
+            --success: #27ae60;
+            --danger: #e74c3c;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0; padding: 0;
+            background: var(--soft-bg);
+            display: flex; height: 100vh; overflow: hidden;
+            color: var(--text-main);
+        }
+
+        /* ── 左側面板 ── */
+        .sidebar {
+            width: 390px;
+            background: var(--card-bg);
+            box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+            display: flex; flex-direction: column;
+            overflow-y: auto; z-index: 10;
+        }
+
+        .sidebar-inner { padding: 24px; }
+
+        /* 品牌標頭 */
+        .brand {
+            display: flex; align-items: center; gap: 10px;
+            border-bottom: 2px solid var(--teal);
+            padding-bottom: 14px; margin-bottom: 20px;
+        }
+        .brand-icon { font-size: 28px; }
+        .brand-title { font-size: 22px; font-weight: 700; color: var(--text-main); }
+        .brand-sub { font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px; }
+
+        /* 頂部快捷 */
+        .top-nav {
+            display: flex; gap: 8px; margin-bottom: 18px;
+        }
+        .top-nav a {
+            flex: 1; text-align: center;
+            background: var(--soft-bg); color: var(--text-muted);
+            text-decoration: none; padding: 7px; border-radius: 6px;
+            font-size: 12px; font-weight: 600;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        .top-nav a:hover { background: var(--teal); color: white; border-color: var(--teal); }
+
+        /* 表單 */
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 13px; }
+        input[type="text"] {
+            width: 100%; padding: 10px 12px;
+            border-radius: 8px; border: 1.5px solid var(--border);
+            font-size: 14px; background: var(--soft-bg);
+            transition: border 0.2s;
+        }
+        input[type="text"]:focus { outline: none; border-color: var(--teal); background: white; }
+
+        input[type="range"] { width: 100%; margin: 6px 0; accent-color: var(--teal); }
+
+        .energy-display {
+            display: flex; justify-content: space-between;
+            font-size: 12px; color: var(--text-muted); margin-top: 2px;
+        }
+        .energy-val { font-weight: 700; color: var(--teal); font-size: 16px; }
+
+        /* Mood 選擇卡片 */
+        .mood-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+        }
+        .mood-card {
+            border: 1.5px solid var(--border);
+            border-radius: 8px; padding: 8px 4px;
+            text-align: center; cursor: pointer;
+            background: var(--soft-bg); transition: all 0.2s;
+            font-size: 11px; font-weight: 600;
+            position: relative;
+        }
+        .mood-card input[type="radio"] { display: none; }
+        .mood-card .mood-emoji { font-size: 20px; display: block; margin-bottom: 3px; }
+        .mood-card:has(input:checked) {
+            border-color: var(--teal);
+            background: #eef9f8;
+            box-shadow: 0 0 0 2px rgba(43,196,182,0.2);
+        }
+        .mood-card:hover { border-color: var(--teal-dark); }
+
+        /* 提交按鈕 */
+        .btn-submit {
+            width: 100%; background: var(--teal); color: white;
+            border: none; padding: 13px; border-radius: 8px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
+            transition: background 0.2s; margin-top: 4px;
+        }
+        .btn-submit:hover { background: var(--teal-dark); }
+
+        /* 錯誤訊息 */
+        .error-msg {
+            color: var(--danger); background: #fde8e7;
+            padding: 10px 14px; border-radius: 8px;
+            margin-bottom: 14px; font-size: 13px;
+            border-left: 3px solid var(--danger);
+        }
+
+        /* ── 結果面板 ── */
+        .result-panel { padding: 0 24px 24px; }
+
+        /* 路線統計卡 */
+        .stats-card {
+            background: linear-gradient(135deg, #eef9f8 0%, #f0f7ff 100%);
+            border: 1px solid #c9eae8;
+            border-radius: 10px; padding: 16px; margin-bottom: 14px;
+        }
+        .stats-card h3 { margin: 0 0 12px 0; font-size: 14px; color: #1a7a72; }
+
+        .stat-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .stat-box {
+            flex: 1; background: white; border-radius: 8px;
+            padding: 10px 6px; text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .stat-val { font-size: 18px; font-weight: 700; color: var(--text-main); }
+        .stat-unit { font-size: 11px; color: var(--text-muted); }
+        .stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        /* 路線人格分析 */
+        .personality-box {
+            background: white; border-radius: 10px;
+            padding: 14px; border: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+        .personality-title { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+        .personality-name { font-size: 17px; font-weight: 700; color: var(--teal-dark); margin-bottom: 4px; }
+        .personality-desc { font-size: 12px; color: #666; line-height: 1.6; }
+
+        /* 情緒數據條 */
+        .meter-row { margin-bottom: 10px; }
+        .meter-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+        .meter-bar { height: 7px; background: #eee; border-radius: 999px; overflow: hidden; }
+        .meter-fill { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+        .fill-crowd  { background: linear-gradient(90deg, #f39c12, #e74c3c); }
+        .fill-quiet  { background: linear-gradient(90deg, #3498db, #2bc4b6); }
+        .fill-recover { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+
+        /* 途中站點 */
+        .waypoints-list {
+            background: white; border-radius: 10px;
+            padding: 14px; border: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+        .waypoints-list h4 { margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); }
+        .waypoints-list li { font-size: 13px; color: var(--text-main); line-height: 2; }
+
+        /* 收藏按鈕 */
+        .btn-save {
+            width: 100%; background: white; color: var(--teal-dark);
+            border: 2px solid var(--teal); padding: 10px; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-save:hover { background: var(--teal); color: white; }
+
+        /* Flash 訊息 */
+        .flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
+        .flash.success { background: #eafaf1; color: #1e8449; border-left: 3px solid var(--success); }
+        .flash.info    { background: #eaf4fb; color: #1a5276; border-left: 3px solid #3498db; }
+
+        /* ── 右側地圖 ── */
         .map-container { flex: 1; position: relative; background: #e5e9f0; }
-        .empty-map-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #7f8c8d; text-align: center; font-size: 18px; }
-        .error-msg { color: #e74c3c; background: #fde8e7; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; }
+        .map-container iframe, .map-container > div { width: 100% !important; height: 100% !important; }
+        .empty-map-text {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-muted); text-align: center; font-size: 17px; line-height: 2;
+        }
+
+        /* 趣味統計 */
+        .fun-stat { font-size: 12px; color: #e67e22; margin-top: 6px; }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <h2>🧩 SoulPath 導航面板</h2>
-    
-    {% if error %}
-        <div class="error-msg">{{ error }}</div>
-    {% endif %}
-    
-    <form action="/search" method="POST">
-        <div class="form-group">
-            <label for="start_place">📍 散步出發地:</label>
-            <input type="text" id="start_place" name="start_place" value="{{ start_place if start_place else '' }}" placeholder="輸入起點，如：羅東車站" required>
+    <div class="sidebar-inner">
+        <!-- 品牌 -->
+        <div class="brand">
+            <div class="brand-icon">🧩</div>
+            <div>
+                <div class="brand-title">SoulPath</div>
+                <div class="brand-sub">情緒導航與療癒探索系統</div>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label for="end_place">🏁 靈魂目的地:</label>
-            <input type="text" id="end_place" name="end_place" value="{{ end_place if end_place else '' }}" placeholder="輸入終點，如：羅東林業園區" required>
+        <!-- 頂部快捷導覽 -->
+        <div class="top-nav">
+            <a href="/">🗺️ 規劃路線</a>
+            <a href="/saved">⭐ 收藏路線</a>
         </div>
 
-        <div class="form-group">
-            <label for="social_energy">⚡ 當前社交能量值 (0 ~ 100):</label>
-            <input type="range" id="social_energy" name="social_energy" min="0" max="100" value="{{ social_energy if social_energy else '80' }}" oninput="this.nextElementSibling.value = this.value">
-            <output>{{ social_energy if social_energy else '80' }}</output>
-        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
 
-        <div class="form-group">
-            <label for="mood">🎭 心境氛圍選擇:</label>
-            <select id="mood" name="mood">
-                <option value="放鬆" {% if mood == '放鬆' %}selected{% endif %}>放鬆 (漫步咖啡廳)</option>
-                <option value="文青" {% if mood == '文青' %}selected{% endif %}>文青 (探索獨立書店)</option>
-                <option value="社交" {% if mood == '社交' %}selected{% endif %}>社交 (熱鬧精華商圈)</option>
-            </select>
-        </div>
+        {% if error %}
+            <div class="error-msg">⚠️ {{ error }}</div>
+        {% endif %}
 
-        <input type="submit" value="開始生成情緒路徑">
-    </form>
+        <!-- 搜尋表單 -->
+        <form action="/search" method="POST">
+            <div class="form-group">
+                <label>📍 散步出發地</label>
+                <input type="text" name="start_place"
+                    value="{{ start_place if start_place else '' }}"
+                    placeholder="輸入起點，如：台南火車站" required>
+            </div>
 
-{% if map_html %}
-        <div class="dashboard">
-            <h3>🧭 導航模式：{{ mode_name }}</h3>
-            <p style="font-size: 13px; color: #555; margin: 5px 0 12px 0;">已為您規劃順路且流暢的心境路線。</p>
-            <div class="stat-grid">
-                <div class="stat-box">
-                    <div class="stat-val">{{ distance }} <span style="font-size: 12px;">km</span></div>
-                    <div class="stat-lbl">預估路程</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-val">{{ duration }} <span style="font-size: 12px;">分鐘</span></div>
-                    <div class="stat-lbl">步行時間</div>
+            <div class="form-group">
+                <label>🏁 靈魂目的地</label>
+                <input type="text" name="end_place"
+                    value="{{ end_place if end_place else '' }}"
+                    placeholder="輸入終點，如：台南文學館" required>
+            </div>
+
+            <div class="form-group">
+                <label>⚡ 社交能量值
+                    <span class="energy-val" id="energy-display">
+                        {{ social_energy if social_energy else '80' }}
+                    </span>
+                </label>
+                <input type="range" name="social_energy" min="0" max="100"
+                    value="{{ social_energy if social_energy else '80' }}"
+                    oninput="document.getElementById('energy-display').textContent = this.value">
+                <div class="energy-display">
+                    <span>😶‍🌫️ 社恐模式 (0)</span>
+                    <span>(100) 極度外向 🎉</span>
                 </div>
             </div>
 
-            {% if waypoints %}
-                <div style="margin-top: 20px; border-top: 1px dashed #2bc4b6; padding-top: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #1e8277; font-size: 14px;">✨ 途中順路探訪的療癒站點：</h4>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #2c3e50; line-height: 1.6;">
-                        {% for wp in waypoints %}
-                            <li><b>{{ wp.name }}</b></li>
-                        {% endfor %}
-                    </ul>
+            <div class="form-group">
+                <label>🎭 心境氛圍</label>
+                <div class="mood-grid">
+                    {% set moods = [
+                        ("放鬆", "😌"), ("文青", "📚"), ("探索", "🗺️"),
+                        ("社交", "💫"), ("療癒", "🌿")
+                    ] %}
+                    {% for m, emoji in moods %}
+                    <label class="mood-card">
+                        <input type="radio" name="mood" value="{{ m }}"
+                            {% if (mood == m) or (not mood and m == '放鬆') %}checked{% endif %}>
+                        <span class="mood-emoji">{{ emoji }}</span>
+                        {{ m }}
+                    </label>
+                    {% endfor %}
                 </div>
-            {% endif %}
+            </div>
+
+            <button type="submit" class="btn-submit">✨ 生成情緒路徑</button>
+        </form>
+    </div>
+
+    <!-- 結果面板 -->
+    {% if map_html %}
+    <div class="result-panel">
+
+        <!-- 基本數據 -->
+        <div class="stats-card">
+            <h3>🧭 {{ mode_name }}</h3>
+            <div class="stat-row">
+                <div class="stat-box">
+                    <div class="stat-val">{{ distance }}<span class="stat-unit"> km</span></div>
+                    <div class="stat-lbl">預估路程</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val">{{ duration }}<span class="stat-unit"> 分</span></div>
+                    <div class="stat-lbl">步行時間</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val">{{ waypoints|length }}</div>
+                    <div class="stat-lbl">途中站點</div>
+                </div>
+            </div>
         </div>
+
+        <!-- 路線人格 -->
+        {% if stats %}
+        <div class="personality-box">
+            <div class="personality-title">路線人格標籤</div>
+            <div class="personality-name">{{ stats.personality }}</div>
+            <div class="personality-desc">{{ stats.personality_desc }}</div>
+        </div>
+
+        <!-- 情緒數據條 -->
+        <div class="stats-card">
+            <h3>📊 路線情緒分析</h3>
+
+            <div class="meter-row">
+                <div class="meter-label">
+                    <span>人群暴露度</span>
+                    <span>{{ stats.crowd_exposure }}/100</span>
+                </div>
+                <div class="meter-bar">
+                    <div class="meter-fill fill-crowd" style="width: {{ stats.crowd_exposure }}%"></div>
+                </div>
+            </div>
+
+            <div class="meter-row">
+                <div class="meter-label">
+                    <span>安靜分數</span>
+                    <span>{{ stats.quietness }}/100</span>
+                </div>
+                <div class="meter-bar">
+                    <div class="meter-fill fill-quiet" style="width: {{ stats.quietness }}%"></div>
+                </div>
+            </div>
+
+            <div class="meter-row">
+                <div class="meter-label">
+                    <span>情緒恢復力</span>
+                    <span>{{ stats.recovery_score }}/100</span>
+                </div>
+                <div class="meter-bar">
+                    <div class="meter-fill fill-recover" style="width: {{ stats.recovery_score }}%"></div>
+                </div>
+            </div>
+
+            {% if stats.bookstore_count > 0 %}
+            <div style="font-size:12px; color:#9b59b6; margin-top:8px;">
+                📚 沿途書店：{{ stats.bookstore_count }} 間
+            </div>
+            {% endif %}
+
+            <div class="fun-stat">
+                😳 尷尬對視機率：約 {{ stats.awkward_chance }}%（Bonus 指標）
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 途中站點 -->
+        {% if waypoints %}
+        <div class="waypoints-list">
+            <h4>✨ 沿途療癒站點</h4>
+            <ul style="margin:0; padding-left:18px;">
+                {% for wp in waypoints %}
+                <li><b>{{ wp.name }}</b>
+                    {% if wp.type %}<span style="color:var(--text-muted);font-size:11px;">（{{ wp.type }}）</span>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- 收藏此路線 -->
+        <form action="/save" method="POST">
+            <input type="hidden" name="start_place" value="{{ start_place }}">
+            <input type="hidden" name="end_place" value="{{ end_place }}">
+            <input type="hidden" name="mood" value="{{ mood }}">
+            <input type="hidden" name="social_energy" value="{{ social_energy }}">
+            <input type="hidden" name="distance" value="{{ distance }}">
+            <input type="hidden" name="duration" value="{{ duration }}">
+            <input type="hidden" name="waypoints_names"
+                value="{{ waypoints|map(attribute='name')|join('||') }}">
+            <button type="submit" class="btn-save">⭐ 收藏這條路線</button>
+        </form>
+
+    </div>
     {% endif %}
 </div>
 
+<!-- 地圖區 -->
 <div class="map-container">
     {% if map_html %}
         {{ map_html|safe }}
-    {% else: %}
+    {% else %}
         <div class="empty-map-text">
             🌐<br><br>
             請在左側輸入起終點並設定社交能量，<br>
-            系統將在此為您實時渲染客製化散步地圖。
+            系統將在此為您即時渲染客製化散步地圖。<br><br>
+            <span style="font-size:13px; color:#bbb;">
+                SoulPath — 導航不只是效率，也是情緒的選擇。
+            </span>
         </div>
     {% endif %}
 </div>
