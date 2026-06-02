@@ -29,15 +29,51 @@ def get_geocode(address):
     return None
 
 
-# ── 黑名單：名稱中含有這些關鍵字的地點一律排除 ──────────────────────────────
-NAME_BLACKLIST = [
+# ── 白名單：只允許這些 OSM class 的地點進入候選 ──────────────────────────────
+# 黑名單永遠補不完公司行號的種類，白名單才是根本解法。
+# Nominatim 回傳的 'class' 欄位只要不在此集合內，一律排除。
+OSM_CLASS_WHITELIST = {
+    "leisure",      # 公園、運動場、綠地
+    "amenity",      # 咖啡廳、圖書館、文化設施等
+    "tourism",      # 景點、博物館、旅遊地標
+    "historic",     # 古蹟、歷史建築
+    "natural",      # 自然地景
+    "landuse",      # 土地利用（公園綠地等）
+    "shop",         # 商店（書店、賣場等，再由 type 細篩）
+}
+
+# ── 在白名單通過後，再用 type 黑名單排除不適合的商店類型 ─────────────────────
+OSM_TYPE_BLACKLIST = {
     # 便利商店
-    "7-ELEVEN", "7eleven", "711", "全家", "FamilyMart", "萊爾富", "OK超商", "OK mart",
-    # 銀行 / 郵局 / 金融
-    "銀行", "郵局", "信用合作社", "農會", "漁會", "ATM",
+    "convenience",
+    # 金融
+    "bank", "atm", "bureau_de_change",
+    # 加油站、汽車相關
+    "fuel", "car_wash", "car_repair", "car_rental",
+    # 醫療
+    "doctors", "dentist", "veterinary", "pharmacy",
+    # 餐飲速食（非散步目的地）
+    "fast_food",
+}
+
+# ── 名稱關鍵字黑名單（最後防線，class 過不了就到這） ─────────────────────────
+NAME_BLACKLIST = [
+    "股份有限公司", "有限公司", "企業社", "工業社", "工廠", "製造",
+    "郵局", "信用合作社", "農會", "漁會", "ATM",
+    "7-ELEVEN", "7eleven", "711", "全家", "FamilyMart", "萊爾富", "OK超商",
 ]
 
-def is_blacklisted(name: str) -> bool:
+def is_blacklisted(name: str, osm_class: str = "", osm_type: str = "") -> bool:
+    """
+    三層過濾（由寬到嚴）：
+    1. OSM class 不在白名單 → 排除（攔截所有公司行號、辦公室、工業區）
+    2. OSM type 在黑名單   → 排除（過濾白名單內的不適合子類型）
+    3. 名稱關鍵字命中      → 排除（最後防線）
+    """
+    if osm_class.lower() not in OSM_CLASS_WHITELIST:
+        return True
+    if osm_type.lower() in OSM_TYPE_BLACKLIST:
+        return True
     name_lower = name.lower()
     return any(kw.lower() in name_lower for kw in NAME_BLACKLIST)
 
@@ -195,10 +231,12 @@ def get_mood_waypoints(start_coords, end_coords, mood, social_energy):
                     px = float(item['lon'])
                     py = float(item['lat'])
                     display_name = item.get('display_name', '').split(',')[0]
+                    osm_class = item.get('class', '')
+                    osm_type  = item.get('type', '')
 
-                    # 黑名單過濾
-                    if is_blacklisted(display_name):
-                        print(f"[黑名單] 排除：{display_name}")
+                    # 黑名單過濾（名稱 + OSM class/type 雙重檢查）
+                    if is_blacklisted(display_name, osm_class, osm_type):
+                        print(f"[黑名單] 排除 [{osm_class}/{osm_type}]：{display_name}")
                         continue
 
                     apx = px - lon_s

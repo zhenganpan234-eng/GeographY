@@ -1,1 +1,33 @@
-__pycache__
+# Python 編譯暫存
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# 虛擬環境
+venv/
+env/
+.venv/
+
+# Flask / 開發環境
+instance/
+.env
+*.env
+
+# 資料檔（本地產生，不進 repo）
+saved_routes.json
+soulpath.db
+
+# 臨時 / 開發筆記
+備註區.txt
+test.py
+*.txt
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
