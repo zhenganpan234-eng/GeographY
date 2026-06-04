@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>SoulPath — 記憶管理</title>
+    <style>
+        :root {
+            --teal: #2bc4b6; --teal-dark: #1fa99c;
+            --soft-bg: #f7f5f2; --text-main: #2c3e50;
+            --text-muted: #7f8c8d; --border: #e8e4df; --danger: #e74c3c;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--soft-bg); color: var(--text-main); margin: 0; }
+        .topbar {
+            background: white; box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+            padding: 14px 28px; display: flex; align-items: center; gap: 16px;
+        }
+        .topbar a { text-decoration: none; color: var(--teal-dark); font-weight: 600; font-size: 14px; }
+        .topbar-title { font-size: 18px; font-weight: 700; }
+        .container { max-width: 880px; margin: 32px auto; padding: 0 16px; }
+        .flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; background: #eaf4fb; color: #1a5276; border-left: 3px solid #3498db; }
+        .memory-section {
+            background: white; border: 1px solid var(--border); border-radius: 10px;
+            padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+        }
+        .section-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+        h2 { font-size: 17px; margin: 0; }
+        .count { color: var(--text-muted); font-size: 12px; font-weight: 400; }
+        .place-row {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            padding: 10px 0; border-top: 1px solid #f0ece8;
+        }
+        .place-name { font-weight: 700; font-size: 14px; }
+        .place-meta { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
+        button {
+            border: 1px solid var(--border); background: white; border-radius: 6px;
+            color: var(--text-muted); padding: 6px 10px; font-size: 12px; cursor: pointer;
+        }
+        button:hover { border-color: var(--danger); color: var(--danger); }
+        .btn-clear { color: var(--danger); border-color: #f1c2bd; }
+        .empty { color: var(--text-muted); font-size: 13px; padding: 12px 0 2px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        input, select {
+            width: 100%; padding: 9px 10px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--soft-bg); font-size: 13px;
+        }
+        .full { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <a href="/">← 返回規劃路線</a>
+    <a href="/saved">⭐ 收藏路線</a>
+    <div class="topbar-title">🧠 記憶管理</div>
+</div>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    {% set sections = [
+        ("liked_places", "喜歡景點"),
+        ("blocked_places", "黑名單"),
+        ("visited_places", "造訪紀錄")
+    ] %}
+
+    {% for key, title in sections %}
+    {% set places = memory[key] %}
+    <div class="memory-section">
+        <div class="section-header">
+            <h2>{{ title }} <span class="count">{{ places|length }} 筆</span></h2>
+            <form action="/memory/clear/{{ key }}" method="POST" style="margin:0;">
+                <button class="btn-clear" type="submit" onclick="return confirm('確定要清除「{{ title }}」嗎？')">清除全部</button>
+            </form>
+        </div>
+
+        {% if places %}
+            {% for place in places %}
+            <div class="place-row">
+                <div>
+                    <div class="place-name">{{ place.name }}</div>
+                    <div class="place-meta">{{ place.category or '未分類' }}{% if place.saved_at %} ｜ {{ place.saved_at }}{% endif %}</div>
+                </div>
+                <form action="/memory/remove/{{ key }}" method="POST" style="margin:0;">
+                    <input type="hidden" name="name" value="{{ place.name }}">
+                    <button type="submit">刪除</button>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty">目前沒有資料。</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="memory-section">
+        <div class="section-header">
+            <h2>手動精選景點 <span class="count">{{ custom_places|length }} 筆</span></h2>
+        </div>
+
+        <form action="/custom-place/add" method="POST" class="form-grid">
+            <input name="name" placeholder="景點名稱，例如：成功湖環湖步道" required>
+            <select name="category">
+                {% for category in ["公園", "庭園", "河岸", "步道", "咖啡廳", "書店", "圖書館", "藝文空間", "古蹟", "廟宇", "市集", "夜市", "商圈"] %}
+                <option value="{{ category }}">{{ category }}</option>
+                {% endfor %}
+            </select>
+            <select name="environment">
+                <option value="戶外">戶外</option>
+                <option value="室內">室內</option>
+            </select>
+            <input name="lon" placeholder="經度，例如：120.9967" required>
+            <input name="lat" placeholder="緯度，例如：24.7941" required>
+            <input name="stay_min" type="number" min="5" step="5" placeholder="最短停留，例如：30" required>
+            <input name="stay_max" type="number" min="5" step="5" placeholder="最長停留，例如：60" required>
+            <input class="full" name="tags" placeholder="標籤，可用逗號分隔，例如：療癒,放鬆,低社交能量">
+            <button class="full" type="submit">新增手動景點</button>
+        </form>
+
+        {% if custom_places %}
+            {% for place in custom_places %}
+            <div class="place-row">
+                <div>
+                    <div class="place-name">{{ place.name }}</div>
+                    <div class="place-meta">
+                        {{ place.category }} ｜ {{ place.environment or '未標記' }} ｜ {{ place.coords[1] }}, {{ place.coords[0] }}
+                    </div>
+                </div>
+                <form action="/custom-place/delete" method="POST" style="margin:0;">
+                    <input type="hidden" name="name" value="{{ place.name }}">
+                    <button type="submit">刪除</button>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty">目前沒有手動景點。</div>
+        {% endif %}
+    </div>
+</div>
+
+</body>
+</html>

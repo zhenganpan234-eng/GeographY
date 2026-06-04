@@ -1,5 +1,7 @@
 import requests
 import math
+import random
+from src.custom_places import load_custom_places
 
 # ── 步行速度常數 ──────────────────────────────────────────────────────────────
 WALK_SPEED_MS = 1.4          # 公尺/秒（成人正常步行約 5 km/h）
@@ -40,6 +42,8 @@ OSM_CLASS_WHITELIST = {
     "natural",      # 自然地景
     "landuse",      # 土地利用（公園綠地等）
     "shop",         # 商店（書店、賣場等，再由 type 細篩）
+    "building",     # 圖書館、書店、美術館等可能被標為 building
+    "highway",      # 步道、環湖路線等可能被標為 highway
 }
 
 # ── 在白名單通過後，再用 type 黑名單排除不適合的商店類型 ─────────────────────
@@ -54,6 +58,8 @@ OSM_TYPE_BLACKLIST = {
     "doctors", "dentist", "veterinary", "pharmacy",
     # 餐飲速食（非散步目的地）
     "fast_food",
+    # 工業、電力、倉儲設施
+    "substation", "power", "industrial", "works", "warehouse",
 }
 
 # ── 名稱關鍵字黑名單（最後防線，class 過不了就到這） ─────────────────────────
@@ -61,7 +67,14 @@ NAME_BLACKLIST = [
     "股份有限公司", "有限公司", "企業社", "工業社", "工廠", "製造",
     "郵局", "信用合作社", "農會", "漁會", "ATM",
     "7-ELEVEN", "7eleven", "711", "全家", "FamilyMart", "萊爾富", "OK超商",
+    "變電", "電廠", "歇業", "永久歇業", "施工中", "機房", "倉庫",
 ]
+
+BUILDING_ALLOWED_KEYWORDS = ["圖書館", "書店", "書局", "美術館", "博物館", "藝廊"]
+HIGHWAY_ALLOWED_KEYWORDS = ["步道", "散步道", "環湖", "登山"]
+INDOOR_CATEGORIES = {"書店", "圖書館", "咖啡廳", "藝文空間"}
+OUTDOOR_CATEGORIES = {"公園", "庭園", "河岸", "步道", "古蹟", "廟宇", "市集", "夜市"}
+
 
 def is_blacklisted(name: str, osm_class: str = "", osm_type: str = "") -> bool:
     """
@@ -70,7 +83,12 @@ def is_blacklisted(name: str, osm_class: str = "", osm_type: str = "") -> bool:
     2. OSM type 在黑名單   → 排除（過濾白名單內的不適合子類型）
     3. 名稱關鍵字命中      → 排除（最後防線）
     """
-    if osm_class.lower() not in OSM_CLASS_WHITELIST:
+    osm_class = osm_class.lower()
+    if osm_class not in OSM_CLASS_WHITELIST:
+        return True
+    if osm_class == "building" and not any(keyword in name for keyword in BUILDING_ALLOWED_KEYWORDS):
+        return True
+    if osm_class == "highway" and not any(keyword in name for keyword in HIGHWAY_ALLOWED_KEYWORDS):
         return True
     if osm_type.lower() in OSM_TYPE_BLACKLIST:
         return True
@@ -78,14 +96,70 @@ def is_blacklisted(name: str, osm_class: str = "", osm_type: str = "") -> bool:
     return any(kw.lower() in name_lower for kw in NAME_BLACKLIST)
 
 
-# ── Mood → 搜尋關鍵字對照表 ──────────────────────────────────────────────────
-MOOD_QUERY_MAP = {
-    "放鬆": ["公園", "咖啡廳"],
-    "文青": ["書店", "咖啡廳"],
-    "探索": ["景點", "小路"],
-    "社交": ["商圈", "夜市"],
-    "療癒": ["公園", "圖書館"],
+# ── 景點分類與搜尋關鍵字：中文優先，英文備援 ────────────────────────────────
+SEARCH_KEYWORDS = {
+    "公園": ["公園", "park"],
+    "庭園": ["庭園", "花園", "garden"],
+    "河岸": ["河岸", "河濱", "河堤", "waterfront"],
+    "步道": ["步道", "trail"],
+    "咖啡廳": ["咖啡廳", "咖啡", "cafe"],
+    "書店": ["書店", "書局", "bookstore"],
+    "圖書館": ["圖書館", "library"],
+    "藝文空間": ["藝廊", "美術館", "展覽", "gallery", "museum"],
+    "古蹟": ["古蹟", "歷史建築", "historic"],
+    "廟宇": ["廟", "宮", "temple"],
+    "市集": ["市場", "市集", "market"],
+    "夜市": ["夜市", "night market"],
+    "商圈": ["商圈", "shopping district"],
 }
+
+MOOD_CATEGORY_WEIGHTS = {
+    "放鬆": {
+        "公園": 1.0, "庭園": 1.0, "河岸": 0.9, "步道": 0.8,
+        "咖啡廳": 0.8, "書店": 0.7, "圖書館": 0.7,
+        "藝文空間": 0.5, "古蹟": 0.5, "廟宇": 0.4,
+        "市集": 0.3, "夜市": 0.2, "商圈": 0.3,
+    },
+    "文青": {
+        "書店": 1.0, "咖啡廳": 0.9, "圖書館": 0.8,
+        "藝文空間": 0.9, "古蹟": 0.7, "庭園": 0.6,
+        "公園": 0.5, "河岸": 0.5, "步道": 0.4,
+        "廟宇": 0.5, "市集": 0.4, "夜市": 0.3, "商圈": 0.4,
+    },
+    "探索": {
+        "古蹟": 1.0, "廟宇": 0.9, "藝文空間": 0.8,
+        "市集": 0.8, "河岸": 0.6, "書店": 0.5,
+        "公園": 0.5, "咖啡廳": 0.5, "庭園": 0.5,
+        "步道": 0.7, "夜市": 0.6, "商圈": 0.6, "圖書館": 0.4,
+    },
+    "社交": {
+        "市集": 1.0, "夜市": 1.0, "商圈": 0.9,
+        "咖啡廳": 0.7, "藝文空間": 0.6,
+        "公園": 0.4, "河岸": 0.4, "庭園": 0.3,
+        "書店": 0.3, "圖書館": 0.2, "古蹟": 0.5, "廟宇": 0.5, "步道": 0.3,
+    },
+    "療癒": {
+        "公園": 1.0, "庭園": 1.0, "河岸": 0.9,
+        "圖書館": 0.8, "書店": 0.7, "咖啡廳": 0.7,
+        "步道": 0.8, "古蹟": 0.5, "藝文空間": 0.5,
+        "廟宇": 0.5, "市集": 0.3, "夜市": 0.2, "商圈": 0.3,
+    },
+}
+
+MOOD_QUERY_MAP = {
+    mood: [category for category, _ in sorted(weights.items(), key=lambda item: item[1], reverse=True)]
+    for mood, weights in MOOD_CATEGORY_WEIGHTS.items()
+}
+
+CATEGORY_STAY_MINUTES = {
+    "公園": (15, 35), "庭園": (15, 35), "河岸": (20, 45), "步道": (30, 60),
+    "咖啡廳": (30, 70), "書店": (20, 45), "圖書館": (30, 60),
+    "藝文空間": (25, 60), "古蹟": (15, 35), "廟宇": (15, 35),
+    "市集": (30, 70), "夜市": (30, 70), "商圈": (30, 70),
+}
+
+QUIET_CATEGORIES = {"公園", "庭園", "河岸", "步道", "圖書館", "書店"}
+SOCIAL_CATEGORIES = {"商圈", "市集", "夜市", "咖啡廳", "藝文空間"}
 
 
 def _haversine_distance(lon1, lat1, lon2, lat2):
@@ -96,6 +170,304 @@ def _haversine_distance(lon1, lat1, lon2, lat2):
     dlam = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
+
+
+def _suggest_stay_minutes(category, total_minutes):
+    low, high = CATEGORY_STAY_MINUTES.get(category, (8, 15))
+    if total_minutes <= 45:
+        return round_to_5(low)
+    if total_minutes >= 120:
+        return round_to_5(high)
+    ratio = (total_minutes - 45) / 75
+    return round_to_5(low + (high - low) * ratio)
+
+
+def round_to_5(minutes):
+    return max(5, round(minutes / 5) * 5)
+
+
+def _extract_place_name(item):
+    namedetails = item.get("namedetails") or {}
+    name = (
+        namedetails.get("name:zh")
+        or namedetails.get("name:zh-TW")
+        or namedetails.get("name")
+        or item.get("name")
+        or item.get("display_name", "").split(",")[0]
+    )
+    return name.strip() or item.get("display_name", "未命名地點").split(",")[0]
+
+
+def _place_key(name):
+    return (name or "").strip().lower()
+
+
+def _distance_score(walk_minutes):
+    if walk_minutes <= 5:
+        return 1.25
+    if walk_minutes <= 10:
+        return 1.0
+    if walk_minutes <= 20:
+        return 0.55
+    return 0.15
+
+
+def _score_candidate(candidate, mood, social_energy, category_counts, search_radius_m, memory, exploration_mode, environment_preference):
+    distance_score = _distance_score(candidate.get("direct_walk_minutes", 999))
+    mood_score = MOOD_CATEGORY_WEIGHTS.get(mood, {}).get(candidate["category"], 0.45)
+
+    energy = int(social_energy)
+    if energy < 40:
+        social_score = 1 if candidate["category"] in QUIET_CATEGORIES else 0.35
+    elif energy >= 70:
+        social_score = 1 if candidate["category"] in SOCIAL_CATEGORIES else 0.65
+    else:
+        social_score = 0.85
+
+    rarity_score = 1 / max(category_counts.get(candidate["category"], 1), 1)
+    stay = candidate["stay_minutes"]
+    stay_value_score = 1 if 5 <= stay <= 30 else 0.65
+
+    key = _place_key(candidate["name"])
+    liked = key in memory.get("liked", set())
+    visited = key in memory.get("visited", set())
+    memory_bonus = 0
+
+    if exploration_mode == "回憶模式":
+        if liked:
+            memory_bonus += 40
+        if visited:
+            memory_bonus += 20
+    elif exploration_mode == "平衡模式":
+        if liked:
+            memory_bonus += 15
+        if not visited:
+            memory_bonus += 15
+    elif exploration_mode == "探索模式":
+        if not visited:
+            memory_bonus += 35
+        if liked:
+            memory_bonus -= 10
+
+    environment_bonus = 0
+    if environment_preference == "偏好室內":
+        environment_bonus = 20 if candidate["category"] in INDOOR_CATEGORIES or candidate.get("environment") == "室內" else 0
+    elif environment_preference == "偏好戶外":
+        environment_bonus = 20 if candidate["category"] in OUTDOOR_CATEGORIES or candidate.get("environment") == "戶外" else 0
+
+    score = (
+        distance_score * 70
+        + mood_score * 30
+        + social_score * 20
+        + rarity_score * 12
+        + stay_value_score * 8
+        + memory_bonus
+        + environment_bonus
+        + random.uniform(0, 8)
+    )
+    return score
+
+
+def _recommendation_reason(candidate, mood, social_energy, memory, exploration_mode):
+    key = _place_key(candidate["name"])
+    if key in memory.get("blocked", set()):
+        return ""
+    if exploration_mode == "回憶模式" and key in memory.get("liked", set()):
+        return "你曾喜歡這個景點，適合回來慢慢走一遍。"
+    if exploration_mode == "回憶模式" and key in memory.get("visited", set()):
+        return "你曾造訪過這裡，適合回憶模式。"
+    if exploration_mode == "探索模式" and key not in memory.get("visited", set()):
+        return "你尚未探索過這個地點。"
+    if int(social_energy) < 40 and candidate["category"] in QUIET_CATEGORIES:
+        return "符合低社交能量需求，環境相對安靜。"
+    if candidate["category"] in {"書店", "圖書館", "咖啡廳"}:
+        return "適合停留，也和目前心境相容。"
+    if candidate["category"] in {"公園", "庭園", "河岸", "步道"}:
+        return "有自然或開放空間，適合作為療癒停留點。"
+    return f"符合「{mood}」偏好的 {candidate['category']} 類景點。"
+
+
+def _dedupe_candidates(candidates):
+    seen = set()
+    unique_candidates = []
+    for candidate in candidates:
+        key = (round(candidate["coords"][0], 4), round(candidate["coords"][1], 4))
+        if key not in seen:
+            seen.add(key)
+            unique_candidates.append(candidate)
+    return unique_candidates
+
+
+def _curated_candidates(start_coords, total_minutes, max_walk_minutes, memory):
+    candidates = []
+    lon_s, lat_s = start_coords
+    max_distance_m = max_walk_minutes * 60 * WALK_SPEED_MS * 0.75
+    for place in load_custom_places():
+        if _place_key(place["name"]) in memory.get("blocked", set()):
+            continue
+        px, py = place["coords"]
+        distance_m = _haversine_distance(lon_s, lat_s, px, py)
+        direct_walk_minutes = distance_m / WALK_SPEED_MS / 60
+        if distance_m > max_distance_m:
+            continue
+        low, high = place.get("stay_range", CATEGORY_STAY_MINUTES.get(place["category"], (15, 30)))
+        stay_minutes = round_to_5(high if total_minutes >= 120 else low if total_minutes <= 45 else round((low + high) / 2))
+        candidates.append({
+            "name": place["name"],
+            "display_name": place["name"],
+            "coords": place["coords"],
+            "type": place["category"],
+            "category": place["category"],
+            "osm_class": "curated",
+            "osm_type": "curated",
+            "environment": place.get("environment", ""),
+            "distance_m": distance_m,
+            "direct_walk_minutes": direct_walk_minutes,
+            "stay_minutes": stay_minutes,
+            "max_stay_minutes": high,
+            "curated": True,
+        })
+    return candidates
+
+
+def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minutes, memory=None, exploration_mode="平衡模式", max_walk_minutes=12, environment_preference="不限"):
+    """
+    依「起點 + 放鬆時長」建立城市療癒探索候選池。
+    回傳已含停留時間、實際名稱與類別的 waypoint 清單，以及時間預算。
+    """
+    url = "https://nominatim.openstreetmap.org/search"
+    headers = {'User-Agent': 'SoulPath/1.0 (time-based healing walk planner)'}
+
+    memory = memory or {"liked": set(), "blocked": set(), "visited": set()}
+    total_minutes = max(1, int(relaxation_minutes))
+    max_walk_minutes = max(1, int(max_walk_minutes))
+    buffer_minutes = max(3, round(total_minutes * 0.10))
+    usable_minutes = total_minutes - buffer_minutes
+    target_stay_budget = max(12, round(usable_minutes * 0.55))
+    target_walk_budget = usable_minutes - target_stay_budget
+
+    max_waypoints = max(1, min(8, total_minutes // 25))
+
+    max_distance_m = max_walk_minutes * 60 * WALK_SPEED_MS * 0.75
+    search_radius_m = _clamp(min(target_walk_budget * 45, max_distance_m), 350, 6500)
+    lat_buffer = search_radius_m / 111000
+    lon_buffer = search_radius_m / (111000 * max(math.cos(math.radians(start_coords[1])), 0.25))
+    lon_s, lat_s = start_coords
+    left, right = lon_s - lon_buffer, lon_s + lon_buffer
+    bottom, top = lat_s - lat_buffer, lat_s + lat_buffer
+
+    categories = list(SEARCH_KEYWORDS.keys())
+
+    all_candidates = _curated_candidates(start_coords, total_minutes, max_walk_minutes, memory)
+    for category in categories:
+        for search_query in SEARCH_KEYWORDS[category]:
+            params = {
+                "q": search_query,
+                "countrycodes": "tw",
+                "viewbox": f"{left},{top},{right},{bottom}",
+                "bounded": 1,
+                "format": "json",
+                "limit": 8,
+                "accept-language": "zh-TW",
+                "namedetails": 1,
+            }
+            try:
+                response = requests.get(url, headers=headers, params=params, timeout=10)
+                if response.status_code != 200:
+                    continue
+                for item in response.json():
+                    px = float(item["lon"])
+                    py = float(item["lat"])
+                    name = _extract_place_name(item)
+                    display_name = item.get("display_name", name)
+                    osm_class = item.get("class", "")
+                    osm_type = item.get("type", "")
+                    if _place_key(name) in memory.get("blocked", set()):
+                        print(f"[個人黑名單] 排除：{name}")
+                        continue
+                    if is_blacklisted(name, osm_class, osm_type):
+                        print(f"[候選過濾] 排除 [{osm_class}/{osm_type}]：{name}")
+                        continue
+
+                    distance_m = _haversine_distance(lon_s, lat_s, px, py)
+                    direct_walk_minutes = distance_m / WALK_SPEED_MS / 60
+                    if distance_m < 80 or distance_m > search_radius_m or direct_walk_minutes > max_walk_minutes:
+                        continue
+
+                    stay_low, stay_high = CATEGORY_STAY_MINUTES.get(category, (15, 30))
+                    all_candidates.append({
+                        "name": name,
+                        "display_name": display_name,
+                        "coords": [px, py],
+                        "type": category,
+                        "category": category,
+                        "osm_class": osm_class,
+                        "osm_type": osm_type,
+                        "environment": "室內" if category in INDOOR_CATEGORIES else "戶外" if category in OUTDOOR_CATEGORIES else "",
+                        "distance_m": distance_m,
+                        "direct_walk_minutes": direct_walk_minutes,
+                        "stay_minutes": _suggest_stay_minutes(category, total_minutes),
+                        "max_stay_minutes": stay_high,
+                    })
+            except Exception as e:
+                print(f"[錯誤] 周邊候選搜尋失敗 ({search_query}): {e}")
+
+    unique_candidates = _dedupe_candidates(all_candidates)
+    if not unique_candidates:
+        return [], {
+            "total": total_minutes,
+            "walking": 0,
+            "stay": 0,
+            "buffer": buffer_minutes,
+        }
+
+    category_counts = {}
+    for candidate in unique_candidates:
+        category_counts[candidate["category"]] = category_counts.get(candidate["category"], 0) + 1
+
+    for candidate in unique_candidates:
+        candidate["score"] = _score_candidate(
+            candidate, mood, social_energy, category_counts, search_radius_m, memory, exploration_mode, environment_preference
+        )
+        candidate["recommendation_reason"] = _recommendation_reason(
+            candidate, mood, social_energy, memory, exploration_mode
+        )
+
+    unique_candidates.sort(key=lambda c: c["score"], reverse=True)
+    pool = unique_candidates[:min(len(unique_candidates), 18)]
+
+    selected = []
+    used_categories = set()
+    stay_total = 0
+    for candidate in pool:
+        if len(selected) >= max_waypoints:
+            break
+        if candidate["category"] in used_categories and len(used_categories) < len(categories):
+            continue
+        projected_stay = stay_total + candidate["stay_minutes"]
+        approx_walk_minutes = ((candidate["distance_m"] * 2) / WALK_SPEED_MS) / 60
+        if selected:
+            farthest = max([wp["distance_m"] for wp in selected] + [candidate["distance_m"]])
+            approx_walk_minutes = ((farthest * 2.4) / WALK_SPEED_MS) / 60
+        if approx_walk_minutes <= max_walk_minutes * max(1.5, len(selected) + 1) and projected_stay + approx_walk_minutes <= usable_minutes + 5:
+            selected.append(candidate)
+            used_categories.add(candidate["category"])
+            stay_total = projected_stay
+
+    if not selected:
+        selected = pool[:1]
+        stay_total = selected[0]["stay_minutes"]
+
+    return selected, {
+        "total": total_minutes,
+        "walking": max(0, total_minutes - stay_total - buffer_minutes),
+        "stay": stay_total,
+        "buffer": buffer_minutes,
+    }
 
 
 def _filter_by_walkability(candidates, start_coords, end_coords):
@@ -354,6 +726,8 @@ def get_route_matrix_v2(start_coords, end_coords, waypoints_coords):
                         "geometry": route['geometry']['coordinates'],
                         "distance": route['distance'],
                         "duration": route['duration'],
+                        "legs": route.get("legs", []),
+                        "leg_geometries": [route['geometry']['coordinates']],
                         "optimized_order": [],
                     }
         except Exception as e:
@@ -391,15 +765,31 @@ def get_route_matrix_v2(start_coords, end_coords, waypoints_coords):
     coord_string = ";".join([f"{pt[0]},{pt[1]}" for pt in final_points])
     url = f"http://router.project-osrm.org/route/v1/foot/{coord_string}"
     try:
-        response = requests.get(url, params={'overview': 'full', 'geometries': 'geojson'}, timeout=10)
+        response = requests.get(
+            url,
+            params={'overview': 'full', 'geometries': 'geojson', 'steps': 'true'},
+            timeout=10
+        )
         if response.status_code == 200:
             data = response.json()
             if data.get('code') == 'Ok':
                 route = data['routes'][0]
+                leg_geometries = []
+                for leg in route.get("legs", []):
+                    coords = []
+                    for step in leg.get("steps", []):
+                        step_coords = step.get("geometry", {}).get("coordinates", [])
+                        if coords and step_coords and coords[-1] == step_coords[0]:
+                            coords.extend(step_coords[1:])
+                        else:
+                            coords.extend(step_coords)
+                    leg_geometries.append(coords)
                 return {
                     "geometry": route['geometry']['coordinates'],
                     "distance": route['distance'],
                     "duration": route['duration'],
+                    "legs": route.get("legs", []),
+                    "leg_geometries": leg_geometries,
                     "optimized_order": optimized_wp_indices,
                 }
     except Exception as e:

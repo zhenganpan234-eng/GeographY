@@ -66,6 +66,7 @@
 
 <div class="topbar">
     <a href="/">← 返回規劃路線</a>
+    <a href="/memory">🧠 記憶管理</a>
     <div class="topbar-title">⭐ 收藏路線</div>
 </div>
 
@@ -84,13 +85,16 @@
         <div class="route-card">
             <div class="route-header">
                 <div>
-                    <div class="route-title">{{ r.start }} → {{ r.end }}</div>
+                    <div class="route-title">{{ r.start }} 的 {{ r.relaxation_minutes|default(r.duration_min) }} 分鐘探索</div>
                     <div class="route-meta">收藏於 {{ r.saved_at }}</div>
                 </div>
             </div>
             <div class="route-tags">
                 <span class="tag mood">{{ r.mood }}</span>
+                <span class="tag">{{ r.exploration_mode|default('平衡模式') }}</span>
+                <span class="tag">{{ r.environment_preference|default('不限') }}</span>
                 <span class="tag">⚡ 能量 {{ r.social_energy }}</span>
+                <span class="tag">🚶 每段 {{ r.max_walk_minutes|default(12) }} 分內</span>
                 <span class="tag">🛤️ {{ r.distance_km }} km</span>
                 <span class="tag">⏱️ {{ r.duration_min }} 分鐘</span>
             </div>
@@ -101,8 +105,8 @@
             {% endif %}
             <div class="action-row">
                 <a class="btn-reuse"
-                    href="/?start={{ r.start | urlencode }}&end={{ r.end | urlencode }}&mood={{ r.mood }}&energy={{ r.social_energy }}">
-                    🔄 重新規劃此路線
+                    href="/?start={{ r.start | urlencode }}&hours={{ (r.relaxation_minutes|default(r.duration_min) / 60) }}&walk={{ r.max_walk_minutes|default(12) }}&mood={{ r.mood }}&energy={{ r.social_energy }}&mode={{ r.exploration_mode|default('平衡模式')|urlencode }}&env={{ r.environment_preference|default('不限')|urlencode }}">
+                    🔄 重新生成探索
                 </a>
                 <form action="/delete/{{ r.id }}" method="POST" style="margin:0;">
                     <button type="submit" class="btn-delete"

@@ -64,13 +64,13 @@
         /* 表單 */
         .form-group { margin-bottom: 16px; }
         label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 13px; }
-        input[type="text"] {
+        input[type="text"], input[type="number"], select {
             width: 100%; padding: 10px 12px;
             border-radius: 8px; border: 1.5px solid var(--border);
             font-size: 14px; background: var(--soft-bg);
             transition: border 0.2s;
         }
-        input[type="text"]:focus { outline: none; border-color: var(--teal); background: white; }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus { outline: none; border-color: var(--teal); background: white; }
 
         input[type="range"] { width: 100%; margin: 6px 0; accent-color: var(--teal); }
 
@@ -166,6 +166,17 @@
         }
         .waypoints-list h4 { margin: 0 0 10px 0; font-size: 13px; color: var(--text-muted); }
         .waypoints-list li { font-size: 13px; color: var(--text-main); line-height: 2; }
+        .itinerary-step { padding: 8px 0; border-bottom: 1px solid #f0ece8; }
+        .itinerary-step:last-child { border-bottom: none; }
+        .walk-step { color: var(--text-muted); font-size: 12px; padding-left: 12px; }
+        .reason { color: var(--text-muted); font-size: 11px; line-height: 1.5; margin-top: 2px; }
+        .place-actions { display: flex; gap: 6px; margin-top: 6px; }
+        .place-actions form { margin: 0; }
+        .btn-place {
+            border: 1px solid var(--border); background: white; border-radius: 6px;
+            color: var(--text-muted); padding: 4px 8px; font-size: 11px; cursor: pointer;
+        }
+        .btn-place:hover { border-color: var(--teal); color: var(--teal-dark); }
 
         /* 收藏按鈕 */
         .btn-save {
@@ -211,6 +222,7 @@
         <div class="top-nav">
             <a href="/">🗺️ 規劃路線</a>
             <a href="/saved">⭐ 收藏路線</a>
+            <a href="/memory">🧠 記憶管理</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -233,10 +245,17 @@
             </div>
 
             <div class="form-group">
-                <label>🏁 靈魂目的地</label>
-                <input type="text" name="end_place"
-                    value="{{ end_place if end_place else '' }}"
-                    placeholder="輸入終點，如：台南文學館" required>
+                <label>⏱️ 預計放鬆時長（小時）</label>
+                <input type="number" name="relaxation_hours" min="0" step="any"
+                    value="{{ relaxation_hours if relaxation_hours else '1' }}"
+                    placeholder="例如：0.5、1、1.5、2、3" required>
+            </div>
+
+            <div class="form-group">
+                <label>🚶 最多連續步行（分鐘）</label>
+                <input type="number" name="max_walk_minutes" min="1" step="1"
+                    value="{{ max_walk_minutes if max_walk_minutes else '12' }}"
+                    placeholder="例如：8、12、15、20" required>
             </div>
 
             <div class="form-group">
@@ -272,7 +291,27 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-submit">✨ 生成情緒路徑</button>
+            <div class="form-group">
+                <label>🧭 推薦模式</label>
+                <select name="exploration_mode">
+                    {% set modes = ["回憶模式", "平衡模式", "探索模式"] %}
+                    {% for mode in modes %}
+                    <option value="{{ mode }}" {% if (exploration_mode == mode) or (not exploration_mode and mode == '平衡模式') %}selected{% endif %}>{{ mode }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>🏠 室內 / 戶外偏好</label>
+                <select name="environment_preference">
+                    {% set env_options = ["不限", "偏好室內", "偏好戶外"] %}
+                    {% for env in env_options %}
+                    <option value="{{ env }}" {% if (environment_preference == env) or (not environment_preference and env == '不限') %}selected{% endif %}>{{ env }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn-submit">✨ 生成療癒探索路線</button>
         </form>
     </div>
 
@@ -290,11 +329,29 @@
                 </div>
                 <div class="stat-box">
                     <div class="stat-val">{{ duration }}<span class="stat-unit"> 分</span></div>
-                    <div class="stat-lbl">步行時間</div>
+                    <div class="stat-lbl">總放鬆時間</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-val">{{ waypoints|length }}</div>
                     <div class="stat-lbl">途中站點</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <h3>⏱️ 時間預算</h3>
+            <div class="stat-row">
+                <div class="stat-box">
+                    <div class="stat-val">{{ walking_minutes }}<span class="stat-unit"> 分</span></div>
+                    <div class="stat-lbl">步行</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val">{{ stay_minutes }}<span class="stat-unit"> 分</span></div>
+                    <div class="stat-lbl">停留</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val">{{ buffer_minutes }}<span class="stat-unit"> 分</span></div>
+                    <div class="stat-lbl">緩衝</div>
                 </div>
             </div>
         </div>
@@ -356,23 +413,47 @@
         <!-- 途中站點 -->
         {% if waypoints %}
         <div class="waypoints-list">
-            <h4>✨ 沿途療癒站點</h4>
-            <ul style="margin:0; padding-left:18px;">
-                {% for wp in waypoints %}
-                <li><b>{{ wp.name }}</b>
-                    {% if wp.type %}<span style="color:var(--text-muted);font-size:11px;">（{{ wp.type }}）</span>{% endif %}
-                </li>
-                {% endfor %}
-            </ul>
+            <h4>✨ 靈魂漫遊行程</h4>
+            {% for item in itinerary %}
+                {% if item.kind == "walk" %}
+                <div class="itinerary-step walk-step">↓<br>步行 {{ item.walking_minutes }} 分鐘</div>
+                {% else %}
+                <div class="itinerary-step">
+                    <b>{{ item.name }}</b>
+                    {% if item.label %}<span style="color:var(--text-muted);font-size:11px;">（{{ item.label }}）</span>{% endif %}
+                    {% if item.stay_minutes %}<div style="color:var(--teal-dark);font-size:12px;">建議停留 {{ item.stay_minutes }} 分鐘</div>{% endif %}
+                    {% if item.recommendation_reason %}<div class="reason">推薦原因：{{ item.recommendation_reason }}</div>{% endif %}
+                    {% if item.stay_minutes %}
+                    <div class="place-actions">
+                        <form action="/place/like" method="POST">
+                            <input type="hidden" name="name" value="{{ item.name }}">
+                            <input type="hidden" name="category" value="{{ item.category }}">
+                            <button type="submit" class="btn-place">♡ 喜歡這個景點</button>
+                        </form>
+                        <form action="/place/block" method="POST">
+                            <input type="hidden" name="name" value="{{ item.name }}">
+                            <input type="hidden" name="category" value="{{ item.category }}">
+                            <button type="submit" class="btn-place">🚫 不再推薦</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
         </div>
         {% endif %}
 
         <!-- 收藏此路線 -->
         <form action="/save" method="POST">
             <input type="hidden" name="start_place" value="{{ start_place }}">
-            <input type="hidden" name="end_place" value="{{ end_place }}">
+            <input type="hidden" name="end_place" value="回到起點附近">
+            <input type="hidden" name="relaxation_hours" value="{{ relaxation_hours }}">
+            <input type="hidden" name="relaxation_minutes" value="{{ relaxation_minutes }}">
+            <input type="hidden" name="max_walk_minutes" value="{{ max_walk_minutes }}">
             <input type="hidden" name="mood" value="{{ mood }}">
             <input type="hidden" name="social_energy" value="{{ social_energy }}">
+            <input type="hidden" name="exploration_mode" value="{{ exploration_mode }}">
+            <input type="hidden" name="environment_preference" value="{{ environment_preference }}">
             <input type="hidden" name="distance" value="{{ distance }}">
             <input type="hidden" name="duration" value="{{ duration }}">
             <input type="hidden" name="waypoints_names"
@@ -391,8 +472,8 @@
     {% else %}
         <div class="empty-map-text">
             🌐<br><br>
-            請在左側輸入起終點並設定社交能量，<br>
-            系統將在此為您即時渲染客製化散步地圖。<br><br>
+            請在左側輸入出發地、放鬆時長與社交能量，<br>
+            系統將自動生成一段城市療癒探索路線。<br><br>
             <span style="font-size:13px; color:#bbb;">
                 SoulPath — 導航不只是效率，也是情緒的選擇。
             </span>

@@ -18,7 +18,7 @@ def load_saved_routes():
             return []
     return []
 
-def save_route(start_place, end_place, mood, social_energy, distance, duration, waypoints):
+def save_route(start_place, end_place, mood, social_energy, distance, duration, waypoints, relaxation_minutes=None, exploration_mode=None, max_walk_minutes=None, environment_preference=None):
     routes = load_saved_routes()
     new_route = {
         "id": datetime.now().strftime("%Y%m%d%H%M%S"),
@@ -29,6 +29,10 @@ def save_route(start_place, end_place, mood, social_energy, distance, duration, 
         "social_energy": int(social_energy),
         "distance_km": distance,
         "duration_min": duration,
+        "relaxation_minutes": relaxation_minutes or duration,
+        "exploration_mode": exploration_mode or "平衡模式",
+        "max_walk_minutes": max_walk_minutes or 12,
+        "environment_preference": environment_preference or "不限",
         "waypoints": [wp["name"] for wp in waypoints],
     }
     routes.insert(0, new_route)

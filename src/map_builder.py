@@ -49,12 +49,12 @@ I_PERSON_THEME = {
 }
 
 
-def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆"):
+def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆", route_segments=None):
     """
     利用 Folium 繪製互動式地圖。
     - 依 mood 和 social_energy 切換地圖主題
     - 中繼點大頭針帶編號 popup
-    - 起終點清楚標示
+    - 起點與回程終點清楚標示
     """
     folium_polyline = [[pt[1], pt[0]] for pt in route_geometry]
     center_lat = folium_polyline[0][0]
@@ -82,29 +82,49 @@ def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆
         attr=theme.get("attr") or "",
     )
 
-    # 路線
-    folium.PolyLine(
-        locations=folium_polyline,
-        color=theme["line_color"],
-        weight=7,
-        opacity=0.85,
-        popup=folium.Popup(mode_text, max_width=300),
-        tooltip=mode_text,
-    ).add_to(mymap)
+    # 路線分段
+    drew_segment = False
+    if route_segments:
+        for idx, segment in enumerate(route_segments, 1):
+            geometry = segment.get("geometry") or []
+            if not geometry:
+                continue
+            leg_polyline = [[pt[1], pt[0]] for pt in geometry]
+            segment_text = f"步行 {segment.get('walking_minutes', '?')} 分鐘 ｜ {mode_text}"
+            folium.PolyLine(
+                locations=leg_polyline,
+                color=theme["line_color"],
+                weight=7,
+                opacity=0.85,
+                popup=folium.Popup(segment_text, max_width=300),
+                tooltip=segment_text,
+            ).add_to(mymap)
+            drew_segment = True
+    if not drew_segment:
+        folium.PolyLine(
+            locations=folium_polyline,
+            color=theme["line_color"],
+            weight=7,
+            opacity=0.85,
+            popup=folium.Popup(mode_text, max_width=300),
+            tooltip=mode_text,
+        ).add_to(mymap)
 
     # 中繼點大頭針
     for idx, wp in enumerate(waypoint_details, 1):
         wp_lat = wp['coords'][1]
         wp_lon = wp['coords'][0]
         wp_type = wp.get('type', '')
+        stay_minutes = wp.get('stay_minutes')
+        stay_text = f"｜建議停留 {stay_minutes} 分鐘" if stay_minutes else ""
         popup_html = (
             f"<b>📍 情緒站點 {idx}: {wp['name']}</b><br>"
-            f"<span style='color:#888; font-size:12px;'>類型：{wp_type}｜順路療癒角落</span>"
+            f"<span style='color:#888; font-size:12px;'>類型：{wp_type}{stay_text}｜城市療癒角落</span>"
         )
         folium.Marker(
             location=[wp_lat, wp_lon],
             popup=folium.Popup(popup_html, max_width=260),
-            tooltip=f"站點 {idx}：{wp['name']}",
+            tooltip=f"{wp['name']}｜{wp_type}",
             icon=folium.Icon(color=theme["icon_color"], icon=theme["icon_name"], prefix="glyphicon"),
         ).add_to(mymap)
 
@@ -119,8 +139,8 @@ def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆
     # 終點
     folium.Marker(
         location=folium_polyline[-1],
-        popup="🏁 靈魂目的地",
-        tooltip="目的地",
+        popup="🏁 回到出發地附近",
+        tooltip="回到附近區域",
         icon=folium.Icon(color='red', icon='flag', prefix='glyphicon'),
     ).add_to(mymap)
 
