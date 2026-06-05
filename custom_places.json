@@ -1,34 +1,128 @@
 [
   {
+    "name": "TSUTAYA BOOKSTORE 竹北樹海店",
+    "category": "書店",
+    "environment": "室內",
+    "coords": [
+      24.828376049237303,
+      121.03056901298764
+    ]
+  },
+  {
     "name": "成功湖環湖步道",
     "category": "步道",
     "environment": "戶外",
-    "coords": [120.9967, 24.7941],
-    "stay_range": [30, 60],
-    "tags": ["療癒", "放鬆", "低社交能量"]
+    "coords": [
+      120.9967,
+      24.7941
+    ]
   },
   {
     "name": "國立清華大學總圖書館",
     "category": "圖書館",
     "environment": "室內",
-    "coords": [120.9948, 24.7955],
-    "stay_range": [30, 60],
-    "tags": ["文青", "療癒", "低社交能量"]
+    "coords": [
+      120.9947,
+      24.7954
+    ]
   },
   {
     "name": "十八尖山步道",
     "category": "步道",
     "environment": "戶外",
-    "coords": [120.9898, 24.7897],
-    "stay_range": [45, 90],
-    "tags": ["療癒", "放鬆", "探索", "戶外"]
+    "coords": [
+      120.9898,
+      24.7897
+    ]
   },
   {
     "name": "TSUTAYA BOOKSTORE 台中市政店",
     "category": "書店",
     "environment": "室內",
-    "coords": [120.6416, 24.1632],
-    "stay_range": [30, 60],
-    "tags": ["文青", "放鬆", "室內"]
+    "coords": [
+      120.6416,
+      24.1632
+    ]
+  },
+  {
+    "name": "新竹女中",
+    "category": "庭園",
+    "environment": "戶外",
+    "coords": [
+      120.9696,
+      24.8048
+    ]
+  },
+  {
+    "name": "巨城 Big City",
+    "category": "商圈",
+    "environment": "室內",
+    "coords": [
+      120.9749,
+      24.8098
+    ]
+  },
+  {
+    "name": "護城河親水公園",
+    "category": "河岸",
+    "environment": "戶外",
+    "coords": [
+      120.9688,
+      24.8036
+    ]
+  },
+  {
+    "name": "東門市場",
+    "category": "市集",
+    "environment": "室內",
+    "coords": [
+      120.9704,
+      24.8045
+    ]
+  },
+  {
+    "name": "新竹市美術館",
+    "category": "藝文空間",
+    "environment": "室內",
+    "coords": [
+      120.9682,
+      24.805
+    ]
+  },
+  {
+    "name": "新竹公園",
+    "category": "公園",
+    "environment": "戶外",
+    "coords": [
+      120.9797,
+      24.8006
+    ]
+  },
+  {
+    "name": "麗池公園",
+    "category": "公園",
+    "environment": "戶外",
+    "coords": [
+      120.981,
+      24.8018
+    ]
+  },
+  {
+    "name": "十八尖山入口",
+    "category": "步道",
+    "environment": "戶外",
+    "coords": [
+      120.9851,
+      24.7926
+    ]
+  },
+  {
+    "name": "清大水木生活中心",
+    "category": "咖啡廳",
+    "environment": "室內",
+    "coords": [
+      120.9964,
+      24.7937
+    ]
   }
 ]

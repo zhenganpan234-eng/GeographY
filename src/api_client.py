@@ -44,6 +44,8 @@ OSM_CLASS_WHITELIST = {
     "shop",         # 商店（書店、賣場等，再由 type 細篩）
     "building",     # 圖書館、書店、美術館等可能被標為 building
     "highway",      # 步道、環湖路線等可能被標為 highway
+    "office",       # 部分藝文/研究場館會被誤標為 office
+    "railway",      # 展覽館、車站共構商圈可能被誤標為 railway
 }
 
 # ── 在白名單通過後，再用 type 黑名單排除不適合的商店類型 ─────────────────────
@@ -70,8 +72,21 @@ NAME_BLACKLIST = [
     "變電", "電廠", "歇業", "永久歇業", "施工中", "機房", "倉庫",
 ]
 
-BUILDING_ALLOWED_KEYWORDS = ["圖書館", "書店", "書局", "美術館", "博物館", "藝廊"]
-HIGHWAY_ALLOWED_KEYWORDS = ["步道", "散步道", "環湖", "登山"]
+NAME_ALLOWLIST_KEYWORDS = [
+    "美術館", "博物館", "藝廊", "展覽館", "展覽", "文化中心", "藝術中心", "廣場",
+    "市場", "市集", "公園", "庭園", "河岸", "河濱", "港濱", "綠地",
+    "步道", "孔廟", "城隍廟", "廟", "宮", "書店", "書局", "圖書館",
+]
+BUILDING_ALLOWED_KEYWORDS = [
+    "圖書館", "書店", "書局", "美術館", "博物館", "藝廊", "展覽館",
+    "展覽", "文化中心", "藝術中心", "孔廟", "城隍廟",
+]
+HIGHWAY_ALLOWED_KEYWORDS = [
+    "步道", "散步道", "環湖", "登山", "廣場", "廟前", "孔廟", "城隍廟",
+    "公園", "港濱", "綠地",
+]
+OFFICE_ALLOWED_KEYWORDS = ["美術館", "博物館", "藝廊", "展覽館", "展覽", "文化中心", "藝術中心"]
+RAILWAY_ALLOWED_KEYWORDS = ["展覽館", "展覽", "商圈", "市場", "市集", "美術館", "博物館"]
 INDOOR_CATEGORIES = {"書店", "圖書館", "咖啡廳", "藝文空間"}
 OUTDOOR_CATEGORIES = {"公園", "庭園", "河岸", "步道", "古蹟", "廟宇", "市集", "夜市"}
 
@@ -83,17 +98,23 @@ def is_blacklisted(name: str, osm_class: str = "", osm_type: str = "") -> bool:
     2. OSM type 在黑名單   → 排除（過濾白名單內的不適合子類型）
     3. 名稱關鍵字命中      → 排除（最後防線）
     """
+    name_lower = name.lower()
+    if any(kw.lower() in name_lower for kw in NAME_BLACKLIST):
+        return True
+    if osm_type.lower() in OSM_TYPE_BLACKLIST:
+        return True
     osm_class = osm_class.lower()
     if osm_class not in OSM_CLASS_WHITELIST:
-        return True
+        return not any(keyword in name for keyword in NAME_ALLOWLIST_KEYWORDS)
     if osm_class == "building" and not any(keyword in name for keyword in BUILDING_ALLOWED_KEYWORDS):
         return True
     if osm_class == "highway" and not any(keyword in name for keyword in HIGHWAY_ALLOWED_KEYWORDS):
         return True
-    if osm_type.lower() in OSM_TYPE_BLACKLIST:
+    if osm_class == "office" and not any(keyword in name for keyword in OFFICE_ALLOWED_KEYWORDS):
         return True
-    name_lower = name.lower()
-    return any(kw.lower() in name_lower for kw in NAME_BLACKLIST)
+    if osm_class == "railway" and not any(keyword in name for keyword in RAILWAY_ALLOWED_KEYWORDS):
+        return True
+    return False
 
 
 # ── 景點分類與搜尋關鍵字：中文優先，英文備援 ────────────────────────────────
@@ -152,14 +173,26 @@ MOOD_QUERY_MAP = {
 }
 
 CATEGORY_STAY_MINUTES = {
-    "公園": (15, 35), "庭園": (15, 35), "河岸": (20, 45), "步道": (30, 60),
-    "咖啡廳": (30, 70), "書店": (20, 45), "圖書館": (30, 60),
-    "藝文空間": (25, 60), "古蹟": (15, 35), "廟宇": (15, 35),
-    "市集": (30, 70), "夜市": (30, 70), "商圈": (30, 70),
+    "公園": (15, 30),
+    "庭園": (15, 30),
+    "河岸": (20, 30),
+    "步道": (30, 60),
+
+    "咖啡廳": (30, 70),
+    "書店": (20, 70),
+    "圖書館": (30, 70),
+
+    "藝文空間": (30, 70),
+    "古蹟": (20, 40),
+    "廟宇": (15, 30),
+
+    "市集": (30, 60),
+    "夜市": (30, 70),
+    "商圈": (30, 70),
 }
 
-QUIET_CATEGORIES = {"公園", "庭園", "河岸", "步道", "圖書館", "書店"}
-SOCIAL_CATEGORIES = {"商圈", "市集", "夜市", "咖啡廳", "藝文空間"}
+QUIET_CATEGORIES = {"公園", "庭園", "河岸", "步道", "圖書館", "書店", "咖啡廳", "藝文空間"}
+SOCIAL_CATEGORIES = {"商圈", "市集", "夜市", "咖啡廳", "藝文空間", "公園", "庭園", "河岸", "步道"}
 
 
 def _haversine_distance(lon1, lat1, lon2, lat2):
@@ -222,9 +255,9 @@ def _score_candidate(candidate, mood, social_energy, category_counts, search_rad
 
     energy = int(social_energy)
     if energy < 40:
-        social_score = 1 if candidate["category"] in QUIET_CATEGORIES else 0.35
+        social_score = 1.25 if candidate["category"] in QUIET_CATEGORIES else 0.05
     elif energy >= 70:
-        social_score = 1 if candidate["category"] in SOCIAL_CATEGORIES else 0.65
+        social_score = 1.2 if candidate["category"] in SOCIAL_CATEGORIES else 0.35
     else:
         social_score = 0.85
 
@@ -238,10 +271,14 @@ def _score_candidate(candidate, mood, social_energy, category_counts, search_rad
     memory_bonus = 0
 
     if exploration_mode == "回憶模式":
-        if liked:
-            memory_bonus += 40
-        if visited:
-            memory_bonus += 20
+        if liked and visited:
+            memory_bonus += 120
+        elif visited:
+            memory_bonus += 75
+        elif liked:
+            memory_bonus += 45
+        else:
+            memory_bonus -= 10
     elif exploration_mode == "平衡模式":
         if liked:
             memory_bonus += 15
@@ -253,6 +290,11 @@ def _score_candidate(candidate, mood, social_energy, category_counts, search_rad
         if liked:
             memory_bonus -= 10
 
+    if energy < 35 and candidate["category"] in SOCIAL_CATEGORIES:
+        memory_bonus -= 25
+    if energy >= 75 and candidate["category"] in QUIET_CATEGORIES:
+        memory_bonus -= 10
+
     environment_bonus = 0
     if environment_preference == "偏好室內":
         environment_bonus = 20 if candidate["category"] in INDOOR_CATEGORIES or candidate.get("environment") == "室內" else 0
@@ -262,7 +304,7 @@ def _score_candidate(candidate, mood, social_energy, category_counts, search_rad
     score = (
         distance_score * 70
         + mood_score * 30
-        + social_score * 20
+        + social_score * 35
         + rarity_score * 12
         + stay_value_score * 8
         + memory_bonus
@@ -276,6 +318,12 @@ def _recommendation_reason(candidate, mood, social_energy, memory, exploration_m
     key = _place_key(candidate["name"])
     if key in memory.get("blocked", set()):
         return ""
+    if (
+        exploration_mode == "回憶模式"
+        and key in memory.get("liked", set())
+        and key in memory.get("visited", set())
+    ):
+        return "你曾造訪且喜歡這個景點，回憶模式會優先推薦。"
     if exploration_mode == "回憶模式" and key in memory.get("liked", set()):
         return "你曾喜歡這個景點，適合回來慢慢走一遍。"
     if exploration_mode == "回憶模式" and key in memory.get("visited", set()):
@@ -310,16 +358,18 @@ def _curated_candidates(start_coords, total_minutes, max_walk_minutes, memory):
         if _place_key(place["name"]) in memory.get("blocked", set()):
             continue
         px, py = place["coords"]
+        if abs(float(px)) < 90 < abs(float(py)):
+            px, py = py, px
         distance_m = _haversine_distance(lon_s, lat_s, px, py)
         direct_walk_minutes = distance_m / WALK_SPEED_MS / 60
         if distance_m > max_distance_m:
             continue
-        low, high = place.get("stay_range", CATEGORY_STAY_MINUTES.get(place["category"], (15, 30)))
+        low, high = CATEGORY_STAY_MINUTES.get(place["category"], (15, 30))
         stay_minutes = round_to_5(high if total_minutes >= 120 else low if total_minutes <= 45 else round((low + high) / 2))
         candidates.append({
             "name": place["name"],
             "display_name": place["name"],
-            "coords": place["coords"],
+            "coords": [px, py],
             "type": place["category"],
             "category": place["category"],
             "osm_class": "curated",
@@ -345,12 +395,12 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
     memory = memory or {"liked": set(), "blocked": set(), "visited": set()}
     total_minutes = max(1, int(relaxation_minutes))
     max_walk_minutes = max(1, int(max_walk_minutes))
-    buffer_minutes = max(3, round(total_minutes * 0.10))
+    buffer_minutes = min(8, max(3, round(total_minutes * 0.06)))
     usable_minutes = total_minutes - buffer_minutes
-    target_stay_budget = max(12, round(usable_minutes * 0.55))
+    target_stay_budget = max(10, round(usable_minutes)) # * 0.42 deleted
     target_walk_budget = usable_minutes - target_stay_budget
 
-    max_waypoints = max(1, min(8, total_minutes // 25))
+    max_waypoints = max(1, min(10, math.ceil(total_minutes / 20)))
 
     max_distance_m = max_walk_minutes * 60 * WALK_SPEED_MS * 0.75
     search_radius_m = _clamp(min(target_walk_budget * 45, max_distance_m), 350, 6500)
@@ -446,14 +496,20 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
     for candidate in pool:
         if len(selected) >= max_waypoints:
             break
-        if candidate["category"] in used_categories and len(used_categories) < len(categories):
+        if (
+            candidate["category"] in used_categories
+            and len(used_categories) < len(categories)
+            and len(selected) < max(3, max_waypoints // 2)
+        ):
             continue
         projected_stay = stay_total + candidate["stay_minutes"]
+        if projected_stay > target_stay_budget and selected:
+            continue
         approx_walk_minutes = ((candidate["distance_m"] * 2) / WALK_SPEED_MS) / 60
         if selected:
             farthest = max([wp["distance_m"] for wp in selected] + [candidate["distance_m"]])
             approx_walk_minutes = ((farthest * 2.4) / WALK_SPEED_MS) / 60
-        if approx_walk_minutes <= max_walk_minutes * max(1.5, len(selected) + 1) and projected_stay + approx_walk_minutes <= usable_minutes + 5:
+        if approx_walk_minutes <= max_walk_minutes * max(1.5, len(selected) + 1):
             selected.append(candidate)
             used_categories.add(candidate["category"])
             stay_total = projected_stay
@@ -702,7 +758,7 @@ def _total_route_cost(matrix, route):
     return sum(matrix[route[k]][route[k+1]] for k in range(len(route) - 1))
 
 
-def get_route_matrix_v2(start_coords, end_coords, waypoints_coords):
+def get_route_matrix_v2(start_coords, end_coords, waypoints_coords, optimize=True):
     """
     3. 最短路徑步行路由引擎
     流程：
@@ -741,7 +797,9 @@ def get_route_matrix_v2(start_coords, end_coords, waypoints_coords):
 
     # (1) 距離矩陣
     matrix = _get_distance_matrix(all_points)
-    if matrix is None:
+    if not optimize:
+        optimized_wp_indices = waypoint_indices
+    elif matrix is None:
         print("[警告] 距離矩陣失敗，改用原始順序")
         optimized_wp_indices = waypoint_indices
     else:

@@ -90,7 +90,8 @@ def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆
             if not geometry:
                 continue
             leg_polyline = [[pt[1], pt[0]] for pt in geometry]
-            segment_text = f"步行 {segment.get('walking_minutes', '?')} 分鐘 ｜ {mode_text}"
+            distance_text = f"{segment.get('distance_km', 0)} km"
+            segment_text = f"步行 {segment.get('walking_minutes', '?')} 分鐘 ｜ {distance_text} ｜ {mode_text}"
             folium.PolyLine(
                 locations=leg_polyline,
                 color=theme["line_color"],
@@ -117,15 +118,31 @@ def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆
         wp_type = wp.get('type', '')
         stay_minutes = wp.get('stay_minutes')
         stay_text = f"｜建議停留 {stay_minutes} 分鐘" if stay_minutes else ""
+        inbound = route_segments[idx - 1] if route_segments and idx - 1 < len(route_segments) else {}
+        walk_text = ""
+        if inbound:
+            walk_text = f"<br><span style='color:#888; font-size:12px;'>前一段：步行 {inbound.get('walking_minutes')} 分鐘｜{inbound.get('distance_km')} km</span>"
         popup_html = (
             f"<b>📍 情緒站點 {idx}: {wp['name']}</b><br>"
             f"<span style='color:#888; font-size:12px;'>類型：{wp_type}{stay_text}｜城市療癒角落</span>"
+            f"{walk_text}<br><a href='#stop-{idx * 2 + 1}'>查看行程說明</a>"
         )
         folium.Marker(
             location=[wp_lat, wp_lon],
             popup=folium.Popup(popup_html, max_width=260),
             tooltip=f"{wp['name']}｜{wp_type}",
-            icon=folium.Icon(color=theme["icon_color"], icon=theme["icon_name"], prefix="glyphicon"),
+            icon=folium.DivIcon(
+                html=(
+                    "<div style='width:28px;height:28px;border-radius:50%;"
+                    f"background:{theme['line_color']};color:white;border:2px solid white;"
+                    "box-shadow:0 2px 8px rgba(0,0,0,.28);display:flex;"
+                    "align-items:center;justify-content:center;font-weight:700;"
+                    "font-size:13px;'>"
+                    f"{idx}</div>"
+                ),
+                icon_size=(28, 28),
+                icon_anchor=(14, 14),
+            ),
         ).add_to(mymap)
 
     # 起點

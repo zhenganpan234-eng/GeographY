@@ -177,6 +177,51 @@
             color: var(--text-muted); padding: 4px 8px; font-size: 11px; cursor: pointer;
         }
         .btn-place:hover { border-color: var(--teal); color: var(--teal-dark); }
+        .btn-place.liked {
+            border-color: #f3b1bd;
+            background: #fff0f3;
+            color: #d81b60;
+            font-weight: 700;
+        }
+        .section-heading {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; margin: 0 0 10px 0;
+        }
+        .section-heading h4 { margin: 0; }
+        .icon-button {
+            width: 28px; height: 28px; border-radius: 7px;
+            border: 1px solid var(--border); background: white;
+            color: var(--text-muted); cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 13px;
+        }
+        .icon-button:hover, .icon-button.active {
+            color: var(--teal-dark); border-color: var(--teal); background: #eef9f8;
+        }
+        .edit-actions {
+            display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;
+        }
+        .edit-actions form { margin: 0; }
+        .btn-icon {
+            width: 28px; height: 28px; border-radius: 6px;
+            border: 1px solid var(--border); background: white;
+            color: var(--text-muted); cursor: pointer;
+            font-size: 12px; line-height: 1;
+        }
+        .btn-icon:hover { color: var(--teal-dark); border-color: var(--teal); }
+        .add-place-form {
+            margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0ece8;
+            display: grid; grid-template-columns: 1fr 90px; gap: 8px;
+        }
+        .add-place-form .wide { grid-column: 1 / -1; }
+        .add-place-form button {
+            border: none; background: var(--teal); color: white;
+            border-radius: 8px; font-weight: 700; cursor: pointer;
+        }
+        .route-edit-tools { display: none; }
+        body.editing-route .route-edit-tools { display: flex; }
+        body.editing-route .add-place-form { display: grid; }
+        body:not(.editing-route) .add-place-form { display: none; }
 
         /* 收藏按鈕 */
         .btn-save {
@@ -194,12 +239,32 @@
 
         /* ── 右側地圖 ── */
         .map-container { flex: 1; position: relative; background: #e5e9f0; }
-        .map-container iframe, .map-container > div { width: 100% !important; height: 100% !important; }
-        .empty-map-text {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            color: var(--text-muted); text-align: center; font-size: 17px; line-height: 2;
+        .map-container iframe, .map-container > .folium-map, #start-picker-map {
+            width: 100% !important;
+            height: 100% !important;
         }
+        .empty-map-text {
+            position: absolute; left: 18px; bottom: 18px; z-index: 450;
+            color: var(--text-muted); text-align: left; font-size: 13px; line-height: 1.5;
+            background: rgba(255,255,255,0.92); border: 1px solid var(--border);
+            border-radius: 8px; padding: 9px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        #start-picker-map { width: 100%; height: 100%; }
+        body:not(.picking-start) #start-picker-map { display: none; }
+        .picker-hint {
+            position: absolute; left: 18px; top: 18px; z-index: 500;
+            background: white; border: 1px solid var(--border);
+            border-radius: 8px; padding: 9px 12px;
+            color: var(--text-main); font-size: 13px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        body:not(.picking-start) .picker-hint { display: none; }
+        .start-label-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .start-label-row label { margin-bottom: 0; }
 
         /* 趣味統計 */
         .fun-stat { font-size: 12px; color: #e67e22; margin-top: 6px; }
@@ -238,10 +303,15 @@
         <!-- 搜尋表單 -->
         <form action="/search" method="POST">
             <div class="form-group">
-                <label>📍 散步出發地</label>
+                <div class="start-label-row">
+                    <label>📍 散步出發地</label>
+                    <button class="icon-button" id="start-picker-toggle" type="button" title="在地圖上選擇出發地">⌖</button>
+                </div>
                 <input type="text" name="start_place"
                     value="{{ start_place if start_place else '' }}"
                     placeholder="輸入起點，如：台南火車站" required>
+                <input type="hidden" name="selected_start_lon" id="selected-start-lon">
+                <input type="hidden" name="selected_start_lat" id="selected-start-lat">
             </div>
 
             <div class="form-group">
@@ -413,22 +483,43 @@
         <!-- 途中站點 -->
         {% if waypoints %}
         <div class="waypoints-list">
-            <h4>✨ 靈魂漫遊行程</h4>
+            <div class="section-heading">
+                <h4>✨ 靈魂漫遊行程</h4>
+                <button class="icon-button" id="route-edit-toggle" type="button" title="編輯行程">✎</button>
+            </div>
             {% for item in itinerary %}
                 {% if item.kind == "walk" %}
-                <div class="itinerary-step walk-step">↓<br>步行 {{ item.walking_minutes }} 分鐘</div>
+                <div class="itinerary-step walk-step">↓<br>步行 {{ item.walking_minutes }} 分鐘{% if item.distance_km %} ｜ {{ item.distance_km }} km{% endif %}</div>
                 {% else %}
-                <div class="itinerary-step">
+                <div class="itinerary-step" {% if item.stay_minutes %}id="stop-{{ loop.index }}"{% endif %}>
                     <b>{{ item.name }}</b>
                     {% if item.label %}<span style="color:var(--text-muted);font-size:11px;">（{{ item.label }}）</span>{% endif %}
                     {% if item.stay_minutes %}<div style="color:var(--teal-dark);font-size:12px;">建議停留 {{ item.stay_minutes }} 分鐘</div>{% endif %}
                     {% if item.recommendation_reason %}<div class="reason">推薦原因：{{ item.recommendation_reason }}</div>{% endif %}
                     {% if item.stay_minutes %}
+                    <div class="edit-actions route-edit-tools">
+                        <form action="/route/reorder" method="POST">
+                            <input type="hidden" name="index" value="{{ item.waypoint_index }}">
+                            <input type="hidden" name="direction" value="up">
+                            <button class="btn-icon" type="submit" title="上移">↑</button>
+                        </form>
+                        <form action="/route/reorder" method="POST">
+                            <input type="hidden" name="index" value="{{ item.waypoint_index }}">
+                            <input type="hidden" name="direction" value="down">
+                            <button class="btn-icon" type="submit" title="下移">↓</button>
+                        </form>
+                        <form action="/route/delete-place" method="POST">
+                            <input type="hidden" name="index" value="{{ item.waypoint_index }}">
+                            <button class="btn-icon" type="submit" title="刪除">×</button>
+                        </form>
+                    </div>
                     <div class="place-actions">
                         <form action="/place/like" method="POST">
                             <input type="hidden" name="name" value="{{ item.name }}">
                             <input type="hidden" name="category" value="{{ item.category }}">
-                            <button type="submit" class="btn-place">♡ 喜歡這個景點</button>
+                            <button type="submit" class="btn-place {% if item.is_liked %}liked{% endif %}">
+                                {% if item.is_liked %}♥ 已喜歡{% else %}♡ 喜歡這個景點{% endif %}
+                            </button>
                         </form>
                         <form action="/place/block" method="POST">
                             <input type="hidden" name="name" value="{{ item.name }}">
@@ -440,11 +531,26 @@
                 </div>
                 {% endif %}
             {% endfor %}
+            <form class="add-place-form" action="/route/add-place" method="POST">
+                <input class="wide" type="text" name="name" list="custom-place-options" autocomplete="off" placeholder="新增景點名稱，例如：新竹市美術館">
+                <datalist id="custom-place-options">
+                    {% for place in custom_places|default([]) %}
+                    <option value="{{ place.name }}"></option>
+                    {% endfor %}
+                </datalist>
+                <select name="category">
+                    {% for category in ["公園", "庭園", "河岸", "步道", "咖啡廳", "書店", "圖書館", "藝文空間", "古蹟", "廟宇", "市集", "夜市", "商圈"] %}
+                    <option value="{{ category }}">{{ category }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">新增</button>
+                <input class="wide" type="text" name="coords" placeholder="可選填經緯度：120.9682, 24.8050">
+            </form>
         </div>
         {% endif %}
 
         <!-- 收藏此路線 -->
-        <form action="/save" method="POST">
+        <form action="{{ url_for('save') }}" method="POST">
             <input type="hidden" name="start_place" value="{{ start_place }}">
             <input type="hidden" name="end_place" value="回到起點附近">
             <input type="hidden" name="relaxation_hours" value="{{ relaxation_hours }}">
@@ -460,6 +566,11 @@
                 value="{{ waypoints|map(attribute='name')|join('||') }}">
             <button type="submit" class="btn-save">⭐ 收藏這條路線</button>
         </form>
+        <div style="text-align:center; margin-top:8px;">
+            <a href="/saved" style="font-size:12px; color:var(--teal-dark); text-decoration:none; font-weight:600;">查看收藏路線</a>
+            <span style="color:var(--text-muted); font-size:12px;">｜</span>
+            <a href="/memory" style="font-size:12px; color:var(--teal-dark); text-decoration:none; font-weight:600;">查看景點清單</a>
+        </div>
 
     </div>
     {% endif %}
@@ -470,16 +581,91 @@
     {% if map_html %}
         {{ map_html|safe }}
     {% else %}
-        <div class="empty-map-text">
+        <!--div class="picker-hint">點右側地圖可直接選擇出發地點</div-->
+        <div id="start-picker-map"></div>
+        <div class="empty-map-text" id="default-map-text">
             🌐<br><br>
-            請在左側輸入出發地、放鬆時長與社交能量，<br>
-            系統將自動生成一段城市療癒探索路線。<br><br>
-            <span style="font-size:13px; color:#bbb;">
-                SoulPath — 導航不只是效率，也是情緒的選擇。
-            </span>
+            輸入出發地，或點左側定位圖示在地圖上選點。<br>
+            <span style="font-size:13px; color:#bbb;">SoulPath 會依你的時間與心境生成療癒散步路線。</span>
         </div>
     {% endif %}
 </div>
+
+{% if not map_html %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const pickerToggle = document.getElementById('start-picker-toggle');
+    const defaultMapText = document.getElementById('default-map-text');
+    const pickerMap = L.map('start-picker-map').setView([24.806, 120.971], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(pickerMap);
+    let startMarker = null;
+    function setSelectedStart(latlng) {
+        const lat = latlng.lat.toFixed(6);
+        const lon = latlng.lng.toFixed(6);
+        document.getElementById('selected-start-lat').value = lat;
+        document.getElementById('selected-start-lon').value = lon;
+        const input = document.querySelector('input[name="start_place"]');
+        input.value = `地圖選點 ${lat}, ${lon}`;
+        if (startMarker) pickerMap.removeLayer(startMarker);
+        startMarker = L.marker(latlng).addTo(pickerMap).bindPopup('出發地點').openPopup();
+        if (defaultMapText) defaultMapText.style.display = 'none';
+    }
+    pickerMap.on('click', function (event) {
+        setSelectedStart(event.latlng);
+    });
+    document.getElementById('start-picker-map').addEventListener('click', function (event) {
+        if (event.target.closest('.leaflet-control')) return;
+        const rect = this.getBoundingClientRect();
+        const point = L.point(event.clientX - rect.left, event.clientY - rect.top);
+        setSelectedStart(pickerMap.containerPointToLatLng(point));
+    });
+    if (pickerToggle) {
+        pickerToggle.addEventListener('click', function () {
+            document.body.classList.toggle('picking-start');
+            pickerToggle.classList.toggle('active', document.body.classList.contains('picking-start'));
+            if (defaultMapText) {
+                defaultMapText.style.display = document.body.classList.contains('picking-start') ? 'none' : '';
+            }
+            setTimeout(() => pickerMap.invalidateSize(), 80);
+        });
+    }
+</script>
+{% endif %}
+
+<script>
+    const customPlaces = {{ custom_places|default([])|tojson }};
+    const addPlaceForm = document.querySelector('.add-place-form');
+    if (addPlaceForm) {
+        const nameInput = addPlaceForm.querySelector('input[name="name"]');
+        const categorySelect = addPlaceForm.querySelector('select[name="category"]');
+        const coordsInput = addPlaceForm.querySelector('input[name="coords"]');
+        const customPlaceByName = new Map(
+            customPlaces.map((place) => [(place.name || '').trim().toLowerCase(), place])
+        );
+        nameInput.addEventListener('input', function () {
+            const match = customPlaceByName.get(nameInput.value.trim().toLowerCase());
+            if (!match) return;
+            if (match.category && categorySelect.querySelector(`option[value="${CSS.escape(match.category)}"]`)) {
+                categorySelect.value = match.category;
+            }
+            if (Array.isArray(match.coords) && match.coords.length >= 2) {
+                coordsInput.value = `${match.coords[0]}, ${match.coords[1]}`;
+            }
+        });
+    }
+
+    const routeEditToggle = document.getElementById('route-edit-toggle');
+    if (routeEditToggle) {
+        routeEditToggle.addEventListener('click', function () {
+            document.body.classList.toggle('editing-route');
+            routeEditToggle.classList.toggle('active', document.body.classList.contains('editing-route'));
+        });
+    }
+</script>
 
 </body>
 </html>

@@ -18,7 +18,7 @@ def load_saved_routes():
             return []
     return []
 
-def save_route(start_place, end_place, mood, social_energy, distance, duration, waypoints, relaxation_minutes=None, exploration_mode=None, max_walk_minutes=None, environment_preference=None):
+def save_route(start_place, end_place, mood, social_energy, distance, duration, waypoints, relaxation_minutes=None, exploration_mode=None, max_walk_minutes=None, environment_preference=None, relaxation_hours=None, snapshot=None):
     routes = load_saved_routes()
     new_route = {
         "id": datetime.now().strftime("%Y%m%d%H%M%S"),
@@ -30,10 +30,12 @@ def save_route(start_place, end_place, mood, social_energy, distance, duration, 
         "distance_km": distance,
         "duration_min": duration,
         "relaxation_minutes": relaxation_minutes or duration,
+        "relaxation_hours": relaxation_hours or round((relaxation_minutes or duration) / 60, 2),
         "exploration_mode": exploration_mode or "平衡模式",
         "max_walk_minutes": max_walk_minutes or 12,
         "environment_preference": environment_preference or "不限",
         "waypoints": [wp["name"] for wp in waypoints],
+        "snapshot": snapshot or {},
     }
     routes.insert(0, new_route)
     # 最多保留 20 條
@@ -41,6 +43,13 @@ def save_route(start_place, end_place, mood, social_energy, distance, duration, 
     with open(SAVE_FILE, "w", encoding="utf-8") as f:
         json.dump(routes, f, ensure_ascii=False, indent=2)
     return new_route["id"]
+
+
+def find_saved_route(route_id):
+    for route in load_saved_routes():
+        if route.get("id") == route_id:
+            return route
+    return None
 
 def delete_route(route_id):
     routes = load_saved_routes()
