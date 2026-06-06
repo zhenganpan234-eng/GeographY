@@ -32,8 +32,6 @@ def get_geocode(address):
 
 
 # ── 白名單：只允許這些 OSM class 的地點進入候選 ──────────────────────────────
-# 黑名單永遠補不完公司行號的種類，白名單才是根本解法。
-# Nominatim 回傳的 'class' 欄位只要不在此集合內，一律排除。
 OSM_CLASS_WHITELIST = {
     "leisure",      # 公園、運動場、綠地
     "amenity",      # 咖啡廳、圖書館、文化設施等
@@ -48,23 +46,15 @@ OSM_CLASS_WHITELIST = {
     "railway",      # 展覽館、車站共構商圈可能被誤標為 railway
 }
 
-# ── 在白名單通過後，再用 type 黑名單排除不適合的商店類型 ─────────────────────
 OSM_TYPE_BLACKLIST = {
-    # 便利商店
     "convenience",
-    # 金融
     "bank", "atm", "bureau_de_change",
-    # 加油站、汽車相關
     "fuel", "car_wash", "car_repair", "car_rental",
-    # 醫療
     "doctors", "dentist", "veterinary", "pharmacy",
-    # 餐飲速食（非散步目的地）
     "fast_food",
-    # 工業、電力、倉儲設施
     "substation", "power", "industrial", "works", "warehouse",
 }
 
-# ── 名稱關鍵字黑名單（最後防線，class 過不了就到這） ─────────────────────────
 NAME_BLACKLIST = [
     "股份有限公司", "有限公司", "企業社", "工業社", "工廠", "製造",
     "郵局", "信用合作社", "農會", "漁會", "ATM",
@@ -92,12 +82,6 @@ OUTDOOR_CATEGORIES = {"公園", "庭園", "河岸", "步道", "古蹟", "廟宇"
 
 
 def is_blacklisted(name: str, osm_class: str = "", osm_type: str = "") -> bool:
-    """
-    三層過濾（由寬到嚴）：
-    1. OSM class 不在白名單 → 排除（攔截所有公司行號、辦公室、工業區）
-    2. OSM type 在黑名單   → 排除（過濾白名單內的不適合子類型）
-    3. 名稱關鍵字命中      → 排除（最後防線）
-    """
     name_lower = name.lower()
     if any(kw.lower() in name_lower for kw in NAME_BLACKLIST):
         return True
@@ -117,7 +101,6 @@ def is_blacklisted(name: str, osm_class: str = "", osm_type: str = "") -> bool:
     return False
 
 
-# ── 景點分類與搜尋關鍵字：中文優先，英文備援 ────────────────────────────────
 SEARCH_KEYWORDS = {
     "公園": ["公園", "park"],
     "庭園": ["庭園", "花園", "garden"],
@@ -384,10 +367,34 @@ def _curated_candidates(start_coords, total_minutes, max_walk_minutes, memory):
     return candidates
 
 
-def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minutes, memory=None, exploration_mode="平衡模式", max_walk_minutes=12, environment_preference="不限"):
+def get_exploration_waypoints(
+    start_coords, mood, social_energy, relaxation_minutes,
+    memory=None, exploration_mode="平衡模式",
+    max_walk_minutes=12, environment_preference="不限"
+):
     """
     依「起點 + 放鬆時長」建立城市療癒探索候選池。
     回傳已含停留時間、實際名稱與類別的 waypoint 清單，以及時間預算。
+
+    修正說明（v2）：
+    ─────────────────────────────────────────────────────────────────
+    Bug 1：target_walk_budget 為零／負數
+        原本 target_stay_budget = usable_minutes（刪掉 *0.42 後）
+        → target_walk_budget = usable_minutes - usable_minutes = 0
+        → search_radius_m = clamp(0 * 45, 350, 6500) = 350m（最小值）
+        → 搜尋範圍極小，找不到足夠景點，時間總和遠低於預定。
+        修正：明確分配步行與停留比例，步行佔 35%、停留佔 65%。
+
+    Bug 2：waypoint 選擇條件太嚴
+        原本 projected_stay > target_stay_budget 就直接跳過，
+        但因為 target_stay_budget = usable_minutes，加第二個景點
+        幾乎必然超出，導致大多時候只選一個景點。
+        修正：加入 10% 容忍彈性，且只在已有足夠景點時才嚴格限制。
+
+    Bug 3：search_radius_m 過小導致問題 3（嚴格條件下無法生成）
+        修正：search_radius_m 改由 max_walk_minutes 直接決定上限，
+        不再依賴 target_walk_budget。
+    ─────────────────────────────────────────────────────────────────
     """
     url = "https://nominatim.openstreetmap.org/search"
     headers = {'User-Agent': 'SoulPath/1.0 (time-based healing walk planner)'}
@@ -397,18 +404,32 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
     max_walk_minutes = max(1, int(max_walk_minutes))
     buffer_minutes = min(8, max(3, round(total_minutes * 0.06)))
     usable_minutes = total_minutes - buffer_minutes
-    target_stay_budget = max(10, round(usable_minutes)) # * 0.42 deleted
-    target_walk_budget = usable_minutes - target_stay_budget
+
+    # ── 修正 Bug 1：明確分配步行／停留比例 ───────────────────────────────────
+    # 步行佔 35%、停留佔 65%，讓兩者都有合理的空間。
+    # 短程（<30分）時停留比重稍高，長程時步行比重可以更多。
+    walk_ratio = 0.30 if total_minutes <= 30 else 0.35 if total_minutes <= 60 else 0.40
+    target_walk_budget = max(5, round(usable_minutes * walk_ratio))
+    target_stay_budget = usable_minutes - target_walk_budget
+
+    print(f"[時間分配] 總={total_minutes}分 緩衝={buffer_minutes}分 "
+          f"可用={usable_minutes}分 → 步行目標={target_walk_budget}分 停留目標={target_stay_budget}分")
 
     max_waypoints = max(1, min(10, math.ceil(total_minutes / 20)))
 
-    max_distance_m = max_walk_minutes * 60 * WALK_SPEED_MS * 0.75
-    search_radius_m = _clamp(min(target_walk_budget * 45, max_distance_m), 350, 6500)
+    # ── 修正 Bug 3：search_radius_m 由 max_walk_minutes 決定，不再依賴 walk_budget ──
+    # 原邏輯：min(target_walk_budget * 45, max_distance_m) → walk_budget=0 時直接崩掉
+    # 新邏輯：直接用 max_walk_minutes 換算實際可走距離，再取 clamp
+    max_distance_m = max_walk_minutes * 60 * WALK_SPEED_MS  # 不乘 0.75，給搜尋更大範圍
+    search_radius_m = _clamp(max_distance_m, 400, 6500)
+
     lat_buffer = search_radius_m / 111000
     lon_buffer = search_radius_m / (111000 * max(math.cos(math.radians(start_coords[1])), 0.25))
     lon_s, lat_s = start_coords
     left, right = lon_s - lon_buffer, lon_s + lon_buffer
     bottom, top = lat_s - lat_buffer, lat_s + lat_buffer
+
+    print(f"[搜尋範圍] 半徑={round(search_radius_m)}m  max_walk={max_walk_minutes}分")
 
     categories = list(SEARCH_KEYWORDS.keys())
 
@@ -445,7 +466,12 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
 
                     distance_m = _haversine_distance(lon_s, lat_s, px, py)
                     direct_walk_minutes = distance_m / WALK_SPEED_MS / 60
-                    if distance_m < 80 or distance_m > search_radius_m or direct_walk_minutes > max_walk_minutes:
+
+                    # 距離過近（幾乎就在腳下）或超出搜尋半徑就跳過
+                    # max_walk_minutes 的過濾放寬：用 *1.2 容許輕微超出
+                    if distance_m < 80 or distance_m > search_radius_m:
+                        continue
+                    if direct_walk_minutes > max_walk_minutes * 1.2:
                         continue
 
                     stay_low, stay_high = CATEGORY_STAY_MINUTES.get(category, (15, 30))
@@ -468,6 +494,7 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
 
     unique_candidates = _dedupe_candidates(all_candidates)
     if not unique_candidates:
+        print("[警告] 候選池為空，無法生成行程")
         return [], {
             "total": total_minutes,
             "walking": 0,
@@ -481,7 +508,8 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
 
     for candidate in unique_candidates:
         candidate["score"] = _score_candidate(
-            candidate, mood, social_energy, category_counts, search_radius_m, memory, exploration_mode, environment_preference
+            candidate, mood, social_energy, category_counts, search_radius_m,
+            memory, exploration_mode, environment_preference
         )
         candidate["recommendation_reason"] = _recommendation_reason(
             candidate, mood, social_energy, memory, exploration_mode
@@ -490,33 +518,52 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
     unique_candidates.sort(key=lambda c: c["score"], reverse=True)
     pool = unique_candidates[:min(len(unique_candidates), 18)]
 
+    # ── 修正 Bug 2：waypoint 選擇條件加入彈性容忍 ────────────────────────────
+    # 原本：projected_stay > target_stay_budget 就跳過（毫無彈性）
+    # 新的：允許超出 10% 的彈性，且只在已有至少 1 個景點後才限制
+    stay_tolerance = max(10, round(target_stay_budget * 0.10))
+
     selected = []
     used_categories = set()
     stay_total = 0
     for candidate in pool:
         if len(selected) >= max_waypoints:
             break
+
+        # 類別多樣性：前半段盡量不重複 category
         if (
             candidate["category"] in used_categories
             and len(used_categories) < len(categories)
             and len(selected) < max(3, max_waypoints // 2)
         ):
             continue
+
         projected_stay = stay_total + candidate["stay_minutes"]
-        if projected_stay > target_stay_budget and selected:
+
+        # 修正：加入容忍彈性，且第一個景點不限制
+        if selected and projected_stay > target_stay_budget + stay_tolerance:
             continue
+
+        # 步行時間估算：以最遠景點的來回距離估算（比較保守的上界）
         approx_walk_minutes = ((candidate["distance_m"] * 2) / WALK_SPEED_MS) / 60
         if selected:
             farthest = max([wp["distance_m"] for wp in selected] + [candidate["distance_m"]])
             approx_walk_minutes = ((farthest * 2.4) / WALK_SPEED_MS) / 60
-        if approx_walk_minutes <= max_walk_minutes * max(1.5, len(selected) + 1):
+
+        # 步行時間允許超出 max_walk_minutes 的累計容忍（乘數隨景點數增加）
+        walk_multiplier = max(1.5, len(selected) + 1)
+        if approx_walk_minutes <= max_walk_minutes * walk_multiplier:
             selected.append(candidate)
             used_categories.add(candidate["category"])
             stay_total = projected_stay
 
     if not selected:
+        # Fallback：至少取評分最高的一個
         selected = pool[:1]
         stay_total = selected[0]["stay_minutes"]
+        print("[Fallback] 條件過嚴，僅保留評分最高的一個景點")
+
+    print(f"[候選結果] 共選出 {len(selected)} 個景點，預計停留={stay_total}分")
 
     return selected, {
         "total": total_minutes,
@@ -528,21 +575,12 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
 
 def _filter_by_walkability(candidates, start_coords, end_coords):
     """
-    步行可達性過濾（核心新功能）
-    ─────────────────────────────
-    原理：對每個候選中繼點，用 OSRM /table 取得：
-      - start → waypoint 的實際步行時間
-      - waypoint → end   的實際步行時間
-    再和直線距離換算的理論時間比較。
-    若任一段的「實際/理論」比值 > WALKABILITY_RATIO_MAX，
-    代表那段路需要繞行人不友善的路段（快速道路、省道等），直接排除該中繼點。
-
-    只用 1 次 OSRM /table 呼叫取得所有點對點時間。
+    步行可達性過濾
+    用 OSRM /table 驗證每個中繼點的實際步行時間是否合理。
     """
     if not candidates:
         return candidates
 
-    # 組合所有點：index 0 = start, 1..N = 候選中繼點, N+1 = end
     all_points = [start_coords] + [c['coords'] for c in candidates] + [end_coords]
     coord_string = ";".join([f"{pt[0]},{pt[1]}" for pt in all_points])
     url = f"http://router.project-osrm.org/table/v1/foot/{coord_string}"
@@ -557,28 +595,23 @@ def _filter_by_walkability(candidates, start_coords, end_coords):
             print("[警告] 步行可達性過濾回傳異常，略過過濾")
             return candidates
 
-        matrix = data['durations']  # N×N，單位：秒
+        matrix = data['durations']
         start_idx = 0
         end_idx = len(all_points) - 1
 
         passed = []
         for i, candidate in enumerate(candidates):
-            wp_idx = i + 1  # 在 all_points 裡的 index
+            wp_idx = i + 1
             wp_lon, wp_lat = candidate['coords']
 
-            # ── start → waypoint ──
             actual_s2w = matrix[start_idx][wp_idx]
-            dist_s2w = _haversine_distance(
-                start_coords[0], start_coords[1], wp_lon, wp_lat)
-            theory_s2w = dist_s2w / WALK_SPEED_MS  # 秒
+            dist_s2w = _haversine_distance(start_coords[0], start_coords[1], wp_lon, wp_lat)
+            theory_s2w = dist_s2w / WALK_SPEED_MS
 
-            # ── waypoint → end ──
             actual_w2e = matrix[wp_idx][end_idx]
-            dist_w2e = _haversine_distance(
-                wp_lon, wp_lat, end_coords[0], end_coords[1])
+            dist_w2e = _haversine_distance(wp_lon, wp_lat, end_coords[0], end_coords[1])
             theory_w2e = dist_w2e / WALK_SPEED_MS
 
-            # 避免除以零（理論時間 < 5 秒的點幾乎就是起終點本身）
             if theory_s2w < 5 or theory_w2e < 5:
                 continue
 
@@ -608,7 +641,6 @@ def get_mood_waypoints(start_coords, end_coords, mood, social_energy):
     url = "https://nominatim.openstreetmap.org/search"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-    # 社交能量低 → 強制導向安靜地點
     if int(social_energy) < 40:
         queries = ["公園", "圖書館"]
     else:
@@ -662,7 +694,6 @@ def get_mood_waypoints(start_coords, end_coords, mood, social_energy):
                     osm_class = item.get('class', '')
                     osm_type  = item.get('type', '')
 
-                    # 黑名單過濾（名稱 + OSM class/type 雙重檢查）
                     if is_blacklisted(display_name, osm_class, osm_type):
                         print(f"[黑名單] 排除 [{osm_class}/{osm_type}]：{display_name}")
                         continue
@@ -685,7 +716,6 @@ def get_mood_waypoints(start_coords, end_coords, mood, social_energy):
         except Exception as e:
             print(f"[錯誤] 順路篩選失敗 ({search_query}): {e}")
 
-    # 去重（以座標四捨五入辨識）
     seen = set()
     unique_candidates = []
     for c in all_candidates:
@@ -696,7 +726,6 @@ def get_mood_waypoints(start_coords, end_coords, mood, social_energy):
 
     unique_candidates.sort(key=lambda k: k['progress'])
 
-    # ── 步行可達性過濾（OSRM 驗證，排除行人不友善路段）────────────────
     walkable_candidates = _filter_by_walkability(unique_candidates, start_coords, end_coords)
 
     valid_waypoints = walkable_candidates[:max_waypoints]
@@ -704,14 +733,11 @@ def get_mood_waypoints(start_coords, end_coords, mood, social_energy):
     return valid_waypoints
 
 
-# ── 以下為路線最佳化引擎（距離矩陣 + 最近鄰 + 2-opt）─────────────────────
+# ── 路線最佳化引擎（距離矩陣 + 最近鄰 + 2-opt）─────────────────────────────
 
 
 def _get_distance_matrix(all_points):
-    """
-    用 OSRM /table 端點一次取得所有點對點的步行距離矩陣。
-    回傳 N×N 的二維 list（單位：秒）。
-    """
+    """用 OSRM /table 一次取得所有點對點的步行距離矩陣（秒）。"""
     coord_string = ";".join([f"{pt[0]},{pt[1]}" for pt in all_points])
     url = f"http://router.project-osrm.org/table/v1/foot/{coord_string}"
     try:
@@ -795,7 +821,6 @@ def get_route_matrix_v2(start_coords, end_coords, waypoints_coords, optimize=Tru
     end_idx = len(all_points) - 1
     waypoint_indices = list(range(1, end_idx))
 
-    # (1) 距離矩陣
     matrix = _get_distance_matrix(all_points)
     if not optimize:
         optimized_wp_indices = waypoint_indices
@@ -803,10 +828,8 @@ def get_route_matrix_v2(start_coords, end_coords, waypoints_coords, optimize=Tru
         print("[警告] 距離矩陣失敗，改用原始順序")
         optimized_wp_indices = waypoint_indices
     else:
-        # (2) 最近鄰貪心
         greedy_order = _nearest_neighbor(matrix, start_idx, waypoint_indices, end_idx)
 
-        # (3) 2-opt 優化
         full_route = [start_idx] + greedy_order + [end_idx]
         optimized_route = _two_opt(matrix, full_route)
         optimized_wp_indices = optimized_route[1:-1]
@@ -818,7 +841,6 @@ def get_route_matrix_v2(start_coords, end_coords, waypoints_coords, optimize=Tru
 
     optimized_waypoints = [all_points[i] for i in optimized_wp_indices]
 
-    # (4) 最終路線
     final_points = [start_coords] + optimized_waypoints + [end_coords]
     coord_string = ";".join([f"{pt[0]},{pt[1]}" for pt in final_points])
     url = f"http://router.project-osrm.org/route/v1/foot/{coord_string}"
