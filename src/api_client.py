@@ -55,7 +55,7 @@ OSM_TYPE_BLACKLIST = {
     # 金融
     "bank", "atm", "bureau_de_change",
     # 加油站、汽車相關
-    "fuel", "car_wash", "car_repair", "car_rental",
+    "fuel", "car_wash", "car_repair", "car_rental", "parking"
     # 醫療
     "doctors", "dentist", "veterinary", "pharmacy",
     # 餐飲速食（非散步目的地）
@@ -69,13 +69,13 @@ NAME_BLACKLIST = [
     "股份有限公司", "有限公司", "企業社", "工業社", "工廠", "製造",
     "郵局", "信用合作社", "農會", "漁會", "ATM",
     "7-ELEVEN", "7eleven", "711", "全家", "FamilyMart", "萊爾富", "OK超商",
-    "變電", "電廠", "歇業", "永久歇業", "施工中", "機房", "倉庫",
+    "變電", "電廠", "歇業", "永久歇業", "施工中", "機房", "倉庫", "停車場"
 ]
 
 NAME_ALLOWLIST_KEYWORDS = [
     "美術館", "博物館", "藝廊", "展覽館", "展覽", "文化中心", "藝術中心", "廣場",
     "市場", "市集", "公園", "庭園", "河岸", "河濱", "港濱", "綠地",
-    "步道", "孔廟", "城隍廟", "廟", "宮", "書店", "書局", "圖書館",
+    "步道", "孔廟", "城隍廟", "廟", "宮", "書店", "書局", "圖書館", "商圈", "世貿"
 ]
 BUILDING_ALLOWED_KEYWORDS = [
     "圖書館", "書店", "書局", "美術館", "博物館", "藝廊", "展覽館",
@@ -86,7 +86,7 @@ HIGHWAY_ALLOWED_KEYWORDS = [
     "公園", "港濱", "綠地",
 ]
 OFFICE_ALLOWED_KEYWORDS = ["美術館", "博物館", "藝廊", "展覽館", "展覽", "文化中心", "藝術中心"]
-RAILWAY_ALLOWED_KEYWORDS = ["展覽館", "展覽", "商圈", "市場", "市集", "美術館", "博物館"]
+RAILWAY_ALLOWED_KEYWORDS = ["展覽館", "展覽", "商圈", "市場", "市集", "美術館", "博物館", "世貿"]
 INDOOR_CATEGORIES = {"書店", "圖書館", "咖啡廳", "藝文空間"}
 OUTDOOR_CATEGORIES = {"公園", "庭園", "河岸", "步道", "古蹟", "廟宇", "市集", "夜市"}
 
@@ -284,7 +284,7 @@ def _score_candidate(candidate, mood, social_energy, category_counts, search_rad
             memory_bonus += 15
         if not visited:
             memory_bonus += 15
-    elif exploration_mode == "探索模式":
+    elif exploration_mode == "????":
         if not visited:
             memory_bonus += 35
         if liked:
@@ -396,14 +396,11 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
     total_minutes = max(1, int(relaxation_minutes))
     max_walk_minutes = max(1, int(max_walk_minutes))
     buffer_minutes = min(8, max(3, round(total_minutes * 0.06)))
-    usable_minutes = total_minutes - buffer_minutes
-    target_stay_budget = max(10, round(usable_minutes)) # * 0.42 deleted
-    target_walk_budget = usable_minutes - target_stay_budget
 
     max_waypoints = max(1, min(10, math.ceil(total_minutes / 20)))
 
     max_distance_m = max_walk_minutes * 60 * WALK_SPEED_MS * 0.75
-    search_radius_m = _clamp(min(target_walk_budget * 45, max_distance_m), 350, 6500)
+    search_radius_m = _clamp(max_distance_m, 350, 6500)
     lat_buffer = search_radius_m / 111000
     lon_buffer = search_radius_m / (111000 * max(math.cos(math.radians(start_coords[1])), 0.25))
     lon_s, lat_s = start_coords
@@ -488,40 +485,16 @@ def get_exploration_waypoints(start_coords, mood, social_energy, relaxation_minu
         )
 
     unique_candidates.sort(key=lambda c: c["score"], reverse=True)
-    pool = unique_candidates[:min(len(unique_candidates), 18)]
+    pool = unique_candidates[:min(len(unique_candidates), 30)]
 
-    selected = []
-    used_categories = set()
-    stay_total = 0
-    for candidate in pool:
-        if len(selected) >= max_waypoints:
-            break
-        if (
-            candidate["category"] in used_categories
-            and len(used_categories) < len(categories)
-            and len(selected) < max(3, max_waypoints // 2)
-        ):
-            continue
-        projected_stay = stay_total + candidate["stay_minutes"]
-        if projected_stay > target_stay_budget and selected:
-            continue
-        approx_walk_minutes = ((candidate["distance_m"] * 2) / WALK_SPEED_MS) / 60
-        if selected:
-            farthest = max([wp["distance_m"] for wp in selected] + [candidate["distance_m"]])
-            approx_walk_minutes = ((farthest * 2.4) / WALK_SPEED_MS) / 60
-        if approx_walk_minutes <= max_walk_minutes * max(1.5, len(selected) + 1):
-            selected.append(candidate)
-            used_categories.add(candidate["category"])
-            stay_total = projected_stay
+    print("[候選池]")
+    for c in pool:
+        print(c["name"], c["category"], c["stay_minutes"], round(c["score"], 1))
 
-    if not selected:
-        selected = pool[:1]
-        stay_total = selected[0]["stay_minutes"]
-
-    return selected, {
+    return pool, {
         "total": total_minutes,
-        "walking": max(0, total_minutes - stay_total - buffer_minutes),
-        "stay": stay_total,
+        "walking": 0,
+        "stay": 0,
         "buffer": buffer_minutes,
     }
 

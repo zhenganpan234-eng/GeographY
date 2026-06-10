@@ -49,10 +49,10 @@
 
         /* 頂部快捷 */
         .top-nav {
-            display: flex; gap: 8px; margin-bottom: 18px;
+            display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap;
         }
         .top-nav a {
-            flex: 1; text-align: center;
+            flex: 1 1 112px; text-align: center;
             background: var(--soft-bg); color: var(--text-muted);
             text-decoration: none; padding: 7px; border-radius: 6px;
             font-size: 12px; font-weight: 600;
@@ -268,6 +268,361 @@
 
         /* 趣味統計 */
         .fun-stat { font-size: 12px; color: #e67e22; margin-top: 6px; }
+
+        /* Poster-inspired SoulPath theme */
+        :root {
+            --teal: #2d6670;
+            --teal-dark: #1f525b;
+            --soft-bg: #f8efe1;
+            --card-bg: rgba(255, 250, 240, 0.88);
+            --text-main: #263e42;
+            --text-muted: #687a78;
+            --border: rgba(45, 102, 112, 0.18);
+            --success: #6f9f72;
+            --danger: #c76d61;
+            --gold: #e6ab58;
+            --coral: #d98772;
+            --lavender: #8b76a6;
+            --paper: #fffaf0;
+        }
+
+        body {
+            font-family: "Noto Sans TC", "Segoe UI", system-ui, sans-serif;
+            background: linear-gradient(125deg, #f5ebdc 0%, #fff9ef 42%, #e6f0e9 100%);
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(90deg, rgba(255, 250, 240, 0.18), rgba(255, 250, 240, 0.03)),
+                url("{{ url_for('static', filename='images/soulpath-page-bg.png') }}") center / cover no-repeat;
+            opacity: 0.48;
+            filter: saturate(0.9);
+            z-index: 0;
+        }
+
+        .sidebar,
+        .map-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .sidebar {
+            width: 430px;
+            margin: 18px 0 18px 18px;
+            height: calc(100vh - 36px);
+            border-radius: 30px;
+            background: rgba(255, 250, 240, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            box-shadow: 0 22px 70px rgba(47, 77, 70, 0.2);
+            backdrop-filter: blur(18px);
+        }
+
+        .sidebar-inner { padding: 26px; }
+
+        .brand {
+            border-bottom: 0;
+            padding: 0 0 18px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        .brand-icon {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 28px;
+            color: white;
+            background: linear-gradient(145deg, #7fae85, #2d6670);
+            box-shadow: inset 0 -10px 20px rgba(0,0,0,0.08), 0 12px 28px rgba(45, 102, 112, 0.2);
+        }
+
+        .brand-title {
+            font-family: "Brush Script MT", "Segoe Script", cursive;
+            color: var(--teal);
+            font-size: 40px;
+            line-height: 0.95;
+            font-weight: 500;
+        }
+
+        .brand-sub {
+            color: var(--teal-dark);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            margin-top: 4px;
+        }
+
+        .top-nav {
+            gap: 9px;
+            padding: 10px;
+            border-radius: 22px;
+            background: rgba(45, 102, 112, 0.08);
+            border: 1px solid rgba(45, 102, 112, 0.1);
+        }
+
+        .top-nav a {
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.6);
+            color: var(--teal-dark);
+            border: 1px solid rgba(45, 102, 112, 0.12);
+            padding: 9px 10px;
+        }
+
+        .top-nav a:hover {
+            background: var(--teal);
+            border-color: var(--teal);
+            color: #fff8ea;
+            transform: translateY(-1px);
+        }
+
+        .form-group {
+            margin-bottom: 17px;
+        }
+
+        label {
+            color: var(--teal-dark);
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
+
+        input[type="text"], input[type="number"], select {
+            min-height: 48px;
+            border-radius: 16px;
+            border: 1px solid rgba(45, 102, 112, 0.16);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--text-main);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            border-color: var(--teal);
+            background: #fffdf7;
+            box-shadow: 0 0 0 4px rgba(45, 102, 112, 0.1);
+        }
+
+        input[type="range"] {
+            accent-color: var(--teal);
+        }
+
+        .energy-val {
+            color: var(--coral);
+            font-size: 18px;
+        }
+
+        .mood-grid {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .mood-card {
+            min-height: 76px;
+            border-radius: 20px;
+            border: 1px solid rgba(45, 102, 112, 0.14);
+            background: rgba(255, 255, 255, 0.62);
+            color: var(--text-main);
+            box-shadow: 0 8px 20px rgba(47, 77, 70, 0.07);
+        }
+
+        .mood-card .mood-emoji {
+            width: 34px;
+            height: 34px;
+            margin: 0 auto 5px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: rgba(143, 180, 145, 0.22);
+        }
+
+        .mood-card:has(input:checked) {
+            border-color: rgba(45, 102, 112, 0.45);
+            background: #edf5ee;
+            box-shadow: 0 0 0 3px rgba(45, 102, 112, 0.12), 0 12px 26px rgba(47, 77, 70, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .btn-submit {
+            min-height: 54px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #2d6670, #5f8b83);
+            color: #fff8ea;
+            box-shadow: 0 18px 38px rgba(45, 102, 112, 0.25);
+        }
+
+        .btn-submit:hover {
+            background: linear-gradient(135deg, #1f525b, #4f7b73);
+            transform: translateY(-1px);
+        }
+
+        .result-panel {
+            padding: 0 26px 28px;
+        }
+
+        .stats-card,
+        .personality-box,
+        .waypoints-list {
+            border-radius: 24px;
+            border: 1px solid rgba(45, 102, 112, 0.14);
+            background: rgba(255, 250, 240, 0.82);
+            box-shadow: 0 14px 36px rgba(47, 77, 70, 0.12);
+        }
+
+        .stats-card h3,
+        .waypoints-list h4 {
+            color: var(--teal-dark);
+            font-weight: 900;
+        }
+
+        .stat-box {
+            border-radius: 18px;
+            box-shadow: none;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(45, 102, 112, 0.1);
+        }
+
+        .stat-val,
+        .personality-name {
+            color: var(--teal);
+        }
+
+        .meter-bar {
+            background: rgba(45, 102, 112, 0.12);
+        }
+
+        .fill-crowd { background: linear-gradient(90deg, #e6ab58, #d98772); }
+        .fill-quiet { background: linear-gradient(90deg, #7fae85, #2d6670); }
+        .fill-recover { background: linear-gradient(90deg, #8fb491, #6f9f72); }
+
+        .itinerary-step {
+            border-bottom: 1px dashed rgba(45, 102, 112, 0.16);
+            padding: 12px 0;
+        }
+
+        .walk-step {
+            color: #71827f;
+            font-family: "Noto Serif TC", serif;
+        }
+
+        .btn-place,
+        .btn-icon,
+        .icon-button {
+            border-radius: 999px;
+            border-color: rgba(45, 102, 112, 0.18);
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--teal-dark);
+        }
+
+        .btn-place:hover,
+        .btn-icon:hover,
+        .icon-button:hover,
+        .icon-button.active {
+            background: #edf5ee;
+            border-color: var(--teal);
+            color: var(--teal);
+        }
+
+        .btn-place.liked {
+            border-color: rgba(217, 135, 114, 0.5);
+            background: #fff0e8;
+            color: #b86152;
+        }
+
+        .btn-save {
+            min-height: 50px;
+            border-radius: 18px;
+            border-color: var(--teal);
+            color: var(--teal-dark);
+            background: rgba(255, 250, 240, 0.9);
+        }
+
+        .btn-save:hover {
+            background: var(--teal);
+            color: #fff8ea;
+        }
+
+        .flash,
+        .error-msg {
+            border-radius: 18px;
+            border-left: 0;
+            border: 1px solid rgba(45, 102, 112, 0.16);
+            box-shadow: 0 10px 24px rgba(47, 77, 70, 0.08);
+        }
+
+        .flash.success {
+            background: rgba(237, 245, 238, 0.9);
+            color: #436f56;
+        }
+
+        .flash.info {
+            background: rgba(232, 242, 245, 0.9);
+            color: var(--teal-dark);
+        }
+
+        .error-msg {
+            background: #fff0e8;
+            color: #a85449;
+        }
+
+        .map-container {
+            margin: 18px 18px 18px 12px;
+            border-radius: 30px;
+            overflow: hidden;
+            background: transparent;
+            box-shadow: none;
+            border: 0;
+            backdrop-filter: none;
+        }
+
+        .empty-map-text {
+            left: 28px;
+            bottom: 28px;
+            max-width: 360px;
+            border-radius: 24px;
+            background: rgba(255, 250, 240, 0.9);
+            border: 1px solid rgba(45, 102, 112, 0.16);
+            color: var(--teal-dark);
+            box-shadow: 0 18px 48px rgba(47, 77, 70, 0.14);
+            backdrop-filter: blur(10px);
+        }
+
+        .picker-hint {
+            border-radius: 22px;
+            background: rgba(255, 250, 240, 0.92);
+            border-color: rgba(45, 102, 112, 0.16);
+            color: var(--teal-dark);
+        }
+
+        .add-place-form {
+            border-top: 1px dashed rgba(45, 102, 112, 0.16);
+        }
+
+        .add-place-form button {
+            border-radius: 16px;
+            background: var(--teal);
+        }
+
+        @media (max-width: 900px) {
+            body {
+                display: block;
+                height: auto;
+                overflow: auto;
+            }
+
+            .sidebar {
+                width: auto;
+                height: auto;
+                margin: 12px;
+            }
+
+            .map-container {
+                min-height: 62vh;
+                margin: 12px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -279,13 +634,17 @@
             <div class="brand-icon">🧩</div>
             <div>
                 <div class="brand-title">SoulPath</div>
-                <div class="brand-sub">情緒導航與療癒探索系統</div>
+                <div class="brand-sub">
+                    {% if page_mode == "journey" %}旅行模式｜從 A 點到 B 點的療癒探索{% else %}漫遊模式｜以自己為中心的情緒探索{% endif %}
+                </div>
             </div>
         </div>
 
         <!-- 頂部快捷導覽 -->
         <div class="top-nav">
-            <a href="/">🗺️ 規劃路線</a>
+            <a href="/">🏡 模式選擇</a>
+            <a href="/journey">🚶 旅行模式</a>
+            <a href="/wander">🌿 漫遊模式</a>
             <a href="/saved">⭐ 收藏路線</a>
             <a href="/memory">🧠 記憶管理</a>
         </div>
@@ -300,11 +659,15 @@
             <div class="error-msg">⚠️ {{ error }}</div>
         {% endif %}
 
+        {% if route_warning %}
+            <div class="flash info">⚠️ {{ route_warning }}</div>
+        {% endif %}
+
         <!-- 搜尋表單 -->
-        <form action="/search" method="POST">
+        <form action="{{ form_action|default('/search') }}" method="POST">
             <div class="form-group">
                 <div class="start-label-row">
-                    <label>📍 散步出發地</label>
+                    <label>{% if page_mode == "journey" %}📍 散步出發地{% else %}📍 散步出發地{% endif %}</label>
                     <button class="icon-button" id="start-picker-toggle" type="button" title="在地圖上選擇出發地">⌖</button>
                 </div>
                 <input type="text" name="start_place"
@@ -314,6 +677,16 @@
                 <input type="hidden" name="selected_start_lat" id="selected-start-lat">
             </div>
 
+            {% if page_mode == "journey" %}
+            <div class="form-group">
+                <label>🏁 靈魂目的地</label>
+                <input type="text" name="end_place"
+                    value="{{ end_place if end_place else '' }}"
+                    placeholder="輸入終點，如：駁二藝術特區" required>
+            </div>
+            {% endif %}
+
+            {% if page_mode != "journey" %}
             <div class="form-group">
                 <label>⏱️ 預計放鬆時長（小時）</label>
                 <input type="number" name="relaxation_hours" min="0" step="any"
@@ -327,6 +700,7 @@
                     value="{{ max_walk_minutes if max_walk_minutes else '12' }}"
                     placeholder="例如：8、12、15、20" required>
             </div>
+            {% endif %}
 
             <div class="form-group">
                 <label>⚡ 社交能量值
@@ -361,6 +735,7 @@
                 </div>
             </div>
 
+            {% if page_mode != "journey" %}
             <div class="form-group">
                 <label>🧭 推薦模式</label>
                 <select name="exploration_mode">
@@ -380,8 +755,11 @@
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
 
-            <button type="submit" class="btn-submit">✨ 生成療癒探索路線</button>
+            <button type="submit" class="btn-submit">
+                {% if page_mode == "journey" %}✨ 生成療癒探索路線{% else %}✨ 生成療癒探索路線{% endif %}
+            </button>
         </form>
     </div>
 
@@ -408,6 +786,7 @@
             </div>
         </div>
 
+        {% if page_mode != "journey" %}
         <div class="stats-card">
             <h3>⏱️ 時間預算</h3>
             <div class="stat-row">
@@ -425,6 +804,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- 路線人格 -->
         {% if stats %}
@@ -552,7 +932,7 @@
         <!-- 收藏此路線 -->
         <form action="{{ url_for('save') }}" method="POST">
             <input type="hidden" name="start_place" value="{{ start_place }}">
-            <input type="hidden" name="end_place" value="回到起點附近">
+            <input type="hidden" name="end_place" value="{{ end_place if end_place else '回到起點附近' }}">
             <input type="hidden" name="relaxation_hours" value="{{ relaxation_hours }}">
             <input type="hidden" name="relaxation_minutes" value="{{ relaxation_minutes }}">
             <input type="hidden" name="max_walk_minutes" value="{{ max_walk_minutes }}">

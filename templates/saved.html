@@ -60,12 +60,97 @@
         .action-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
 
         .empty { text-align: center; color: var(--text-muted); padding: 60px 0; font-size: 16px; }
+
+        :root {
+            --teal: #2d6670; --teal-dark: #1f525b;
+            --soft-bg: #f8efe1; --card-bg: rgba(255, 250, 240, 0.9);
+            --text-main: #263e42; --text-muted: #687a78;
+            --border: rgba(45, 102, 112, 0.18); --danger: #c76d61;
+            --gold: #e6ab58; --coral: #d98772; --lavender: #8b76a6;
+        }
+        body {
+            font-family: "Noto Sans TC", "Segoe UI", system-ui, sans-serif;
+            background: linear-gradient(125deg, #f5ebdc 0%, #fff9ef 45%, #e6f0e9 100%);
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: url("{{ url_for('static', filename='images/soulpath-page-bg.png') }}") center / cover no-repeat;
+            opacity: 0.6;
+        }
+        .topbar {
+            position: sticky; top: 0; z-index: 2;
+            margin: 18px auto 0;
+            width: min(960px, calc(100% - 28px));
+            border-radius: 999px;
+            background: rgba(255, 250, 240, 0.72);
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: 0 18px 50px rgba(47, 77, 70, 0.14);
+            backdrop-filter: blur(16px);
+        }
+        .topbar a { color: var(--teal-dark); }
+        .topbar-title {
+            color: var(--teal);
+            font-weight: 900;
+        }
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+        }
+        h1 {
+            color: var(--teal-dark);
+        }
+        .route-card {
+            border-radius: 26px;
+            background: rgba(255, 250, 240, 0.72);
+            border: 1px solid rgba(45, 102, 112, 0.14);
+            box-shadow: 0 18px 48px rgba(47, 77, 70, 0.12);
+            backdrop-filter: blur(12px);
+        }
+        .route-title {
+            color: var(--teal-dark);
+            font-size: 17px;
+        }
+        .tag {
+            border-radius: 999px;
+            background: #edf5ee;
+            color: var(--teal-dark);
+            border: 1px solid rgba(45, 102, 112, 0.12);
+        }
+        .tag.mood {
+            background: #f2ecf6;
+            color: #76608f;
+        }
+        .btn-reuse {
+            border-radius: 999px;
+            background: linear-gradient(135deg, #2d6670, #5f8b83);
+            color: #fff8ea;
+            box-shadow: 0 12px 28px rgba(45, 102, 112, 0.22);
+        }
+        .btn-delete {
+            border-radius: 999px;
+            background: rgba(255,255,255,0.62);
+            color: #9a8c84;
+        }
+        .flash {
+            border-radius: 20px;
+            border-left: 0;
+            border: 1px solid rgba(45, 102, 112, 0.14);
+        }
+        .empty {
+            border-radius: 30px;
+            background: rgba(255, 250, 240, 0.68);
+            border: 1px solid rgba(45, 102, 112, 0.14);
+        }
     </style>
 </head>
 <body>
 
 <div class="topbar">
-    <a href="/">← 返回規劃路線</a>
+    <a href="/route/current">← 返回路線規劃</a>
     <a href="/memory">🧠 記憶管理</a>
     <div class="topbar-title">⭐ 收藏路線</div>
 </div>

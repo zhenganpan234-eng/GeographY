@@ -49,7 +49,7 @@ I_PERSON_THEME = {
 }
 
 
-def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆", route_segments=None):
+def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆", route_segments=None, end_label="回到出發地附近"):
     """
     利用 Folium 繪製互動式地圖。
     - 依 mood 和 social_energy 切換地圖主題
@@ -156,8 +156,8 @@ def build_soul_map(route_geometry, social_energy, waypoint_details, mood="放鬆
     # 終點
     folium.Marker(
         location=folium_polyline[-1],
-        popup="🏁 回到出發地附近",
-        tooltip="回到附近區域",
+        popup=f"🏁 {end_label}",
+        tooltip=end_label,
         icon=folium.Icon(color='red', icon='flag', prefix='glyphicon'),
     ).add_to(mymap)
 

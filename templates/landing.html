@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoulPath | 情緒導航與療癒探索系統</title>
+    <style>
+        :root {
+            --ink: #153f36;
+            --teal: #245f55;
+            --teal-dark: #16483f;
+            --sage: #7fa272;
+            --cream: #fff8eb;
+            --paper: rgba(255, 250, 239, 0.88);
+            --paper-soft: rgba(255, 250, 239, 0.74);
+            --muted: #536761;
+            --gold: #d8873f;
+            --line: rgba(36, 95, 85, 0.18);
+            --shadow: 0 24px 72px rgba(31, 65, 56, 0.18);
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            margin: 0;
+            min-height: 100%;
+            color: var(--ink);
+            font-family: "Noto Sans TC", "Segoe UI", system-ui, sans-serif;
+            background:
+                linear-gradient(140deg, #e8f1e8 0%, #fff8eb 48%, #f5e6cc 100%);
+        }
+
+        .page {
+            width: min(1440px, 100%);
+            margin: 0 auto;
+            padding: clamp(20px, 4vw, 48px);
+        }
+
+        .hero {
+            min-height: clamp(680px, 86vh, 860px);
+            border-radius: clamp(26px, 4vw, 44px);
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: minmax(380px, 0.9fr) minmax(360px, 1fr);
+            align-items: center;
+            gap: clamp(24px, 5vw, 72px);
+            padding: clamp(42px, 7vw, 86px);
+            background:
+                linear-gradient(90deg, rgba(255, 250, 239, 0.98) 0%, rgba(255, 250, 239, 0.82) 36%, rgba(255, 250, 239, 0.26) 64%, rgba(255, 250, 239, 0.04) 100%),
+                url("{{ url_for('static', filename='images/soulpath-home-hero.png') }}") center / cover no-repeat;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.75);
+        }
+
+        .hero-copy {
+            position: relative;
+            z-index: 2;
+            animation: fadeUp 720ms ease both;
+        }
+
+        .logo {
+            margin: 0 0 22px;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(74px, 11vw, 164px);
+            line-height: 0.88;
+            letter-spacing: -0.045em;
+            font-weight: 500;
+            color: var(--ink);
+            text-shadow: 0 2px 0 rgba(255, 255, 255, 0.45);
+        }
+
+        .subtitle {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            margin: 0 0 42px;
+            color: var(--teal);
+            font-size: clamp(18px, 2vw, 30px);
+            font-weight: 850;
+            letter-spacing: 0.16em;
+        }
+
+        .subtitle::before,
+        .subtitle::after {
+            content: "";
+            width: 70px;
+            height: 1px;
+            background: rgba(36, 95, 85, 0.34);
+        }
+
+        .slogan {
+            margin: 0 0 42px;
+            color: #1d2f30;
+            font-family: "Noto Serif TC", "DFKai-SB", serif;
+            font-size: clamp(24px, 3vw, 38px);
+            line-height: 1.7;
+            letter-spacing: 0.04em;
+        }
+
+        .slogan strong {
+            color: #d47f4b;
+            font-weight: 900;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+        }
+
+        .hero-btn {
+            min-height: 64px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 0 30px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 900;
+            border: 1px solid rgba(36, 95, 85, 0.22);
+            box-shadow: 0 18px 38px rgba(31, 65, 56, 0.16);
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .hero-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 24px 58px rgba(31, 65, 56, 0.24);
+        }
+
+        .hero-btn.primary {
+            color: #fffaf0;
+            background: linear-gradient(135deg, #17483e, #2b6b60);
+        }
+
+        .hero-btn.secondary {
+            color: var(--teal);
+            background: rgba(255, 250, 239, 0.74);
+            backdrop-filter: blur(12px);
+        }
+
+        .spot-list {
+            position: relative;
+            z-index: 2;
+            justify-self: end;
+            width: min(250px, 100%);
+            display: grid;
+            gap: 26px;
+            animation: fadeUp 820ms 120ms ease both;
+        }
+
+        .spot {
+            min-height: 62px;
+            display: grid;
+            grid-template-columns: 52px 1fr;
+            align-items: center;
+            gap: 14px;
+            padding: 7px 18px 7px 7px;
+            border-radius: 999px;
+            background: rgba(255, 250, 239, 0.84);
+            color: var(--teal);
+            font-size: 17px;
+            font-weight: 900;
+            border: 1px solid rgba(255,255,255,0.78);
+            box-shadow: 0 14px 42px rgba(31, 65, 56, 0.14);
+            backdrop-filter: blur(10px);
+        }
+
+        .spot-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: white;
+            font-size: 22px;
+        }
+
+        .spot:nth-child(1) .spot-icon { background: #73a86c; }
+        .spot:nth-child(2) .spot-icon { background: #6579a7; }
+        .spot:nth-child(3) .spot-icon { background: #62a8d8; }
+        .spot:nth-child(4) .spot-icon { background: #a27136; }
+        .spot:nth-child(5) .spot-icon { background: #6ca179; }
+
+        .modes {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+            margin: 28px auto 24px;
+        }
+
+        .mode-card {
+            min-height: 360px;
+            display: grid;
+            grid-template-columns: 92px 1fr;
+            gap: 20px;
+            align-items: start;
+            padding: clamp(28px, 4vw, 42px);
+            border-radius: 30px;
+            background: var(--paper);
+            color: var(--ink);
+            text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.78);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+            transition: transform 190ms ease, box-shadow 190ms ease;
+        }
+
+        .mode-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 30px 86px rgba(31, 65, 56, 0.24);
+        }
+
+        .mode-icon {
+            width: 78px;
+            height: 78px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 38px;
+            background: #e7efdc;
+            color: var(--teal);
+            border: 1px solid var(--line);
+        }
+
+        .mode-card h2 {
+            margin: 2px 0 12px;
+            color: var(--teal);
+            font-size: clamp(28px, 3vw, 40px);
+            letter-spacing: 0.04em;
+        }
+
+        .wander h2 { color: #bf6e2e; }
+
+        .mode-card p {
+            margin: 0;
+            color: #3f514d;
+            font-size: 17px;
+            line-height: 1.72;
+            font-weight: 650;
+        }
+
+        .mode-visual {
+            grid-column: 1 / -1;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            color: var(--teal);
+            font-weight: 850;
+        }
+
+        .route-line {
+            height: 2px;
+            flex: 1;
+            max-width: 260px;
+            border-top: 2px dashed rgba(36, 95, 85, 0.36);
+        }
+
+        .route-dot {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: rgba(126, 162, 114, 0.18);
+            font-size: 25px;
+        }
+
+        .mode-action {
+            grid-column: 2;
+            justify-self: end;
+            min-height: 56px;
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 8px 0 24px;
+            border-radius: 999px;
+            color: var(--teal);
+            background: rgba(255, 250, 239, 0.76);
+            border: 1px solid rgba(36, 95, 85, 0.22);
+            font-weight: 900;
+        }
+
+        .mode-action span {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #fffaf0;
+            background: var(--teal);
+        }
+
+        .wander .mode-action {
+            color: #c77832;
+            border-color: rgba(199, 120, 50, 0.28);
+        }
+
+        .wander .mode-action span {
+            background: #d9863d;
+        }
+
+        .features {
+            margin: 0 auto 30px;
+            padding: clamp(24px, 4vw, 38px);
+            border-radius: 30px;
+            background: rgba(255, 250, 239, 0.9);
+            border: 1px solid rgba(255,255,255,0.78);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+        }
+
+        .features h3 {
+            margin: 0 0 28px;
+            text-align: center;
+            color: var(--ink);
+            font-size: 26px;
+            letter-spacing: 0.08em;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 22px;
+        }
+
+        .feature {
+            display: grid;
+            grid-template-columns: 64px 1fr;
+            gap: 14px;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .feature-icon {
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: #e7efdc;
+            font-size: 30px;
+        }
+
+        .feature strong {
+            display: block;
+            color: var(--teal);
+            font-size: 17px;
+            margin-bottom: 5px;
+        }
+
+        .feature span {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 980px) {
+            .hero {
+                grid-template-columns: 1fr;
+                min-height: auto;
+                background:
+                    linear-gradient(180deg, rgba(255, 250, 239, 0.97), rgba(255, 250, 239, 0.52)),
+                    url("{{ url_for('static', filename='images/soulpath-home-hero.png') }}") center / cover no-repeat;
+            }
+
+            .spot-list {
+                justify-self: start;
+                width: 100%;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .modes,
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .page { padding: 14px; }
+            .hero { padding: 34px 22px; border-radius: 26px; }
+            .logo { font-size: clamp(60px, 20vw, 96px); }
+            .subtitle { letter-spacing: 0.06em; }
+            .subtitle::before,
+            .subtitle::after { width: 30px; }
+            .hero-actions { flex-direction: column; }
+            .hero-btn { width: 100%; }
+            .spot-list { grid-template-columns: 1fr; }
+            .mode-card { grid-template-columns: 1fr; }
+            .mode-action { grid-column: 1; justify-self: stretch; justify-content: space-between; }
+            .mode-visual { flex-wrap: wrap; justify-content: flex-start; }
+            .route-line { min-width: 72px; }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <div class="hero-copy">
+                <h1 class="logo">SoulPath</h1>
+                <div class="subtitle">情緒導航與療癒探索系統</div>
+                <p class="slogan">
+                    有時候，<br>
+                    你需要的不是最快的路，<br>
+                    而是一條能讓自己 <strong>慢下來</strong> 的路。
+                </p>
+                <div class="hero-actions">
+                    <a class="hero-btn primary" href="#modes">🍃 開始療癒探索</a>
+                    <a class="hero-btn secondary" href="/saved">☆ 查看收藏路線</a>
+                </div>
+            </div>
+
+            <div class="spot-list" aria-label="療癒探索類型">
+                <div class="spot"><span class="spot-icon">🌲</span>公園散步</div>
+                <div class="spot"><span class="spot-icon">📖</span>文青書店</div>
+                <div class="spot"><span class="spot-icon">〰</span>河岸步道</div>
+                <div class="spot"><span class="spot-icon">☕</span>特色咖啡廳</div>
+                <div class="spot"><span class="spot-icon">♡</span>療癒景點</div>
+            </div>
+        </section>
+
+        <section class="modes" id="modes">
+            <a class="mode-card journey" href="/journey">
+                <div class="mode-icon">💼</div>
+                <div>
+                    <h2>旅行模式</h2>
+                    <p>從起點到終點，安排療癒探索旅程。</p>
+                </div>
+                <div class="mode-visual">
+                    <span>台北車站</span>
+                    <span class="route-line"></span>
+                    <span class="route-dot">☕</span>
+                    <span class="route-dot">📖</span>
+                    <span class="route-line"></span>
+                    <span>西門町</span>
+                </div>
+                <div class="mode-action">開始規劃 <span>→</span></div>
+            </a>
+
+            <a class="mode-card wander" href="/wander">
+                <div class="mode-icon">🌿</div>
+                <div>
+                    <h2>漫遊模式</h2>
+                    <p>沒有目的地也沒關係。從你所在的位置出發，依照情緒與時間，探索屬於自己的療癒角落。</p>
+                </div>
+                <div class="mode-visual">
+                    <span class="route-dot">🌲</span>
+                    <span class="route-line"></span>
+                    <span class="route-dot">◎</span>
+                    <span class="route-line"></span>
+                    <span class="route-dot">⏱</span>
+                    <span class="route-dot">🚶</span>
+                </div>
+                <div class="mode-action">開始漫遊 <span>→</span></div>
+            </a>
+        </section>
+
+        <section class="features">
+            <h3>為什麼選擇 SoulPath？</h3>
+            <div class="feature-grid">
+                <div class="feature">
+                    <div class="feature-icon">🍃</div>
+                    <div><strong>情緒導向推薦</strong><span>依心情與社交能量生成最適合的路線</span></div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🧠</div>
+                    <div><strong>個人記憶學習</strong><span>記憶你喜歡與造訪的地方，越用越懂你</span></div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🚶</div>
+                    <div><strong>客製化步行</strong><span>依時間、距離與步行習慣客製療癒旅程</span></div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">❤</div>
+                    <div><strong>路線人格分析</strong><span>分析路線特性與情緒狀態，了解你的探索風格</span></div>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

@@ -45,12 +45,98 @@
             border: 1px solid var(--border); background: var(--soft-bg); font-size: 13px;
         }
         .full { grid-column: 1 / -1; }
+
+        :root {
+            --teal: #2d6670; --teal-dark: #1f525b;
+            --soft-bg: #f8efe1; --text-main: #263e42;
+            --text-muted: #687a78; --border: rgba(45, 102, 112, 0.18);
+            --danger: #c76d61; --gold: #e6ab58; --coral: #d98772;
+        }
+        body {
+            font-family: "Noto Sans TC", "Segoe UI", system-ui, sans-serif;
+            background: linear-gradient(125deg, #f5ebdc 0%, #fff9ef 45%, #e6f0e9 100%);
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: url("{{ url_for('static', filename='images/soulpath-page-bg.png') }}") center / cover no-repeat;
+            opacity: 0.6;
+        }
+        .topbar {
+            position: sticky; top: 0; z-index: 2;
+            margin: 18px auto 0;
+            width: min(980px, calc(100% - 28px));
+            border-radius: 999px;
+            background: rgba(255, 250, 240, 0.72);
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: 0 18px 50px rgba(47, 77, 70, 0.14);
+            backdrop-filter: blur(16px);
+        }
+        .topbar a { color: var(--teal-dark); }
+        .topbar-title {
+            color: var(--teal);
+            font-weight: 900;
+        }
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 980px;
+        }
+        .memory-section {
+            border-radius: 28px;
+            background: rgba(255, 250, 240, 0.72);
+            border: 1px solid rgba(45, 102, 112, 0.14);
+            box-shadow: 0 18px 48px rgba(47, 77, 70, 0.12);
+            backdrop-filter: blur(12px);
+        }
+        h2 {
+            color: var(--teal-dark);
+            font-weight: 900;
+        }
+        .place-row {
+            border-top: 1px dashed rgba(45, 102, 112, 0.16);
+        }
+        .place-name {
+            color: var(--teal-dark);
+        }
+        button {
+            border-radius: 999px;
+            background: rgba(255,255,255,0.64);
+            color: var(--teal-dark);
+            border-color: rgba(45, 102, 112, 0.16);
+        }
+        button:hover {
+            background: #fff0e8;
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+        input, select {
+            min-height: 44px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.68);
+            border-color: rgba(45, 102, 112, 0.16);
+        }
+        .form-grid button.full {
+            background: linear-gradient(135deg, #2d6670, #5f8b83);
+            color: #fff8ea;
+            border: 0;
+            box-shadow: 0 12px 28px rgba(45, 102, 112, 0.22);
+        }
+        .flash {
+            border-radius: 20px;
+            border-left: 0;
+            border: 1px solid rgba(45, 102, 112, 0.14);
+            background: rgba(232, 242, 245, 0.9);
+            color: var(--teal-dark);
+        }
     </style>
 </head>
 <body>
 
 <div class="topbar">
-    <a href="/">← 返回規劃路線</a>
+    <a href="/route/current">← 返回路線規劃</a>
     <a href="/saved">⭐ 收藏路線</a>
     <div class="topbar-title">🧠 記憶管理</div>
 </div>
