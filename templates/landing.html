@@ -5,17 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SoulPath | 情緒導航與療癒探索系統</title>
     <style>
+        #music-toggle {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+
+            z-index: 99999;
+
+            width: 48px;
+            height: 48px;
+
+            border: 1px solid rgba(45, 102, 112, 0.18);
+            border-radius: 50%;
+
+            background: rgba(255, 250, 240, 0.88);
+            color: #1f525b;
+
+            font-size: 20px;
+            cursor: pointer;
+
+            box-shadow: 0 14px 32px rgba(47, 77, 70, 0.18);
+            backdrop-filter: blur(10px);
+        }
+
+        #music-toggle:hover {
+            transform: translateY(-2px);
+        }
+
         :root {
-            --ink: #153f36;
+            --ink: #143f36;
             --teal: #245f55;
-            --teal-dark: #16483f;
-            --sage: #7fa272;
-            --cream: #fff8eb;
-            --paper: rgba(255, 250, 239, 0.88);
-            --paper-soft: rgba(255, 250, 239, 0.74);
+            --deep: #16483f;
+            --paper: rgba(255, 250, 239, 0.9);
+            --paper-soft: rgba(255, 250, 239, 0.78);
+            --line: rgba(36, 95, 85, 0.18);
             --muted: #536761;
             --gold: #d8873f;
-            --line: rgba(36, 95, 85, 0.18);
             --shadow: 0 24px 72px rgba(31, 65, 56, 0.18);
         }
 
@@ -27,79 +52,115 @@
             min-height: 100%;
             color: var(--ink);
             font-family: "Noto Sans TC", "Segoe UI", system-ui, sans-serif;
+
             background:
-                linear-gradient(140deg, #e8f1e8 0%, #fff8eb 48%, #f5e6cc 100%);
+                linear-gradient(
+                    125deg,
+                    #f5ebdc 0%,
+                    #fff9ef 20%,
+                    #e6f0e9 40%
+                );
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+
+            background:
+                url("{{ url_for('static', filename='images/soulpath-home-bg1.png') }}")
+                center / cover no-repeat;
+
+            opacity: 0.20;
+
+            pointer-events: none;
+            z-index: -1;
         }
 
         .page {
-            width: min(1440px, 100%);
-            margin: 0 auto;
-            padding: clamp(20px, 4vw, 48px);
+            width: 100%;
+            min-height: 100%;
+            padding: clamp(18px, 3vw, 44px);
         }
 
-        .hero {
-            min-height: clamp(680px, 86vh, 860px);
-            border-radius: clamp(26px, 4vw, 44px);
-            position: relative;
+        .hero-card {
+            width: min(90vw, 1400px);
+            aspect-ratio: 16 / 9;
+            min-height: 560px;
+            margin: 0 auto 28px;
+            border-radius: 32px;
             overflow: hidden;
-            display: grid;
-            grid-template-columns: minmax(380px, 0.9fr) minmax(360px, 1fr);
-            align-items: center;
-            gap: clamp(24px, 5vw, 72px);
-            padding: clamp(42px, 7vw, 86px);
-            background:
-                linear-gradient(90deg, rgba(255, 250, 239, 0.98) 0%, rgba(255, 250, 239, 0.82) 36%, rgba(255, 250, 239, 0.26) 64%, rgba(255, 250, 239, 0.04) 100%),
-                url("{{ url_for('static', filename='images/soulpath-home-hero.png') }}") center / cover no-repeat;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.78);
             box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.75);
+            background: #fff8eb;
         }
 
-        .hero-copy {
-            position: relative;
+        .hero-bg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .hero-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: transparent
+            pointer-events: none;
+        }
+
+        .hero-overlay {
+            position: absolute;
             z-index: 2;
+            left: clamp(38px, 6vw, 92px);
+            top: 50%;
+            transform: translateY(-50%);
+            width: min(610px, 48%);
             animation: fadeUp 720ms ease both;
         }
 
         .logo {
-            margin: 0 0 22px;
+            margin: 0 0 20px;
+            color: var(--ink);
             font-family: Georgia, "Times New Roman", serif;
-            font-size: clamp(74px, 11vw, 164px);
-            line-height: 0.88;
+            font-size: clamp(70px, 9vw, 148px);
+            line-height: 0.9;
             letter-spacing: -0.045em;
             font-weight: 500;
-            color: var(--ink);
-            text-shadow: 0 2px 0 rgba(255, 255, 255, 0.45);
         }
 
         .subtitle {
             display: flex;
             align-items: center;
-            gap: 18px;
-            margin: 0 0 42px;
+            gap: 16px;
+            margin: 0 0 38px;
             color: var(--teal);
-            font-size: clamp(18px, 2vw, 30px);
+            font-size: clamp(18px, 2vw, 29px);
             font-weight: 850;
-            letter-spacing: 0.16em;
+            letter-spacing: 0.14em;
         }
 
         .subtitle::before,
         .subtitle::after {
             content: "";
-            width: 70px;
+            width: 60px;
             height: 1px;
             background: rgba(36, 95, 85, 0.34);
         }
 
         .slogan {
-            margin: 0 0 42px;
+            margin: 0 0 34px;
             color: #1d2f30;
             font-family: "Noto Serif TC", "DFKai-SB", serif;
-            font-size: clamp(24px, 3vw, 38px);
-            line-height: 1.7;
+            font-size: clamp(24px, 2.7vw, 38px);
+            line-height: 1.72;
             letter-spacing: 0.04em;
         }
 
-        .slogan strong {
+        .slogan span {
             color: #d47f4b;
             font-weight: 900;
         }
@@ -108,10 +169,11 @@
             display: flex;
             flex-wrap: wrap;
             gap: 18px;
+            margin-top: 150px;
         }
 
         .hero-btn {
-            min-height: 64px;
+            min-height: 62px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -138,80 +200,67 @@
 
         .hero-btn.secondary {
             color: var(--teal);
-            background: rgba(255, 250, 239, 0.74);
+            background: rgba(255, 250, 239, 0.76);
             backdrop-filter: blur(12px);
         }
 
-        .spot-list {
-            position: relative;
-            z-index: 2;
-            justify-self: end;
-            width: min(250px, 100%);
-            display: grid;
-            gap: 26px;
-            animation: fadeUp 820ms 120ms ease both;
-        }
-
-        .spot {
-            min-height: 62px;
-            display: grid;
-            grid-template-columns: 52px 1fr;
-            align-items: center;
-            gap: 14px;
-            padding: 7px 18px 7px 7px;
-            border-radius: 999px;
-            background: rgba(255, 250, 239, 0.84);
-            color: var(--teal);
-            font-size: 17px;
-            font-weight: 900;
-            border: 1px solid rgba(255,255,255,0.78);
-            box-shadow: 0 14px 42px rgba(31, 65, 56, 0.14);
-            backdrop-filter: blur(10px);
-        }
-
-        .spot-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-            color: white;
-            font-size: 22px;
-        }
-
-        .spot:nth-child(1) .spot-icon { background: #73a86c; }
-        .spot:nth-child(2) .spot-icon { background: #6579a7; }
-        .spot:nth-child(3) .spot-icon { background: #62a8d8; }
-        .spot:nth-child(4) .spot-icon { background: #a27136; }
-        .spot:nth-child(5) .spot-icon { background: #6ca179; }
-
         .modes {
+            width: min(90vw, 1400px);
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 24px;
-            margin: 28px auto 24px;
+            margin: 80px auto 24px;
         }
 
         .mode-card {
-            min-height: 360px;
-            display: grid;
-            grid-template-columns: 92px 1fr;
-            gap: 20px;
-            align-items: start;
-            padding: clamp(28px, 4vw, 42px);
-            border-radius: 30px;
+            min-height: 332px;
+            padding: clamp(26px, 4vw, 38px);
+            border-radius: 28px;
             background: var(--paper);
             color: var(--ink);
             text-decoration: none;
-            border: 1px solid rgba(255,255,255,0.78);
+            border: 1px solid rgba(255,255,255,0.82);
             box-shadow: var(--shadow);
             backdrop-filter: blur(16px);
             transition: transform 190ms ease, box-shadow 190ms ease;
+            display: grid;
+            grid-template-columns: 92px 1fr;
+            gap: 18px;
+            align-items: start;
         }
 
         .mode-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 30px 86px rgba(31, 65, 56, 0.24);
+            transform: translateY(-10px);
+            box-shadow: 0 30px 86px rgba(31, 65, 56, 0.45);
+        }
+
+        .hero-card,
+        .mode-card,
+        .features {
+            opacity: 0;
+            transform: translateY(70px);
+            animation: slideUp 0.9s ease forwards;
+            animation-timeline: view();
+            animation-range: entry 0% cover 35%;
+        }
+
+        .mode-card:nth-child(2) {
+            animation-delay: 0.12s;
+        }
+
+        .features {
+            animation-delay: 0.2s;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(70px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .mode-icon {
@@ -227,40 +276,37 @@
         }
 
         .mode-card h2 {
-            margin: 2px 0 12px;
+            margin: 2px 0 10px;
             color: var(--teal);
-            font-size: clamp(28px, 3vw, 40px);
+            font-size: clamp(28px, 3vw, 38px);
             letter-spacing: 0.04em;
         }
-
-        .wander h2 { color: #bf6e2e; }
 
         .mode-card p {
             margin: 0;
             color: #3f514d;
-            font-size: 17px;
-            line-height: 1.72;
+            font-size: 16px;
+            line-height: 1.65;
             font-weight: 650;
         }
 
-        .mode-visual {
+        .journey-map {
             grid-column: 1 / -1;
-            min-height: 120px;
-            display: flex;
+            display: grid;
+            grid-template-columns: auto 1fr auto 1fr auto;
             align-items: center;
-            justify-content: center;
-            gap: 16px;
+            gap: 12px;
+            margin-top: 18px;
             color: var(--teal);
             font-weight: 850;
         }
 
         .route-line {
             height: 2px;
-            flex: 1;
-            max-width: 260px;
-            border-top: 2px dashed rgba(36, 95, 85, 0.36);
+            border-top: 2px dashed rgba(36, 95, 85, 0.42);
         }
 
+        .route-pin,
         .route-dot {
             width: 52px;
             height: 52px;
@@ -271,10 +317,74 @@
             font-size: 25px;
         }
 
+        .route-labels {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 8px;
+            color: #1d4d43;
+            font-weight: 800;
+        }
+
+        .wander h2,
+        .wander .mode-action {
+            color: #c77832;
+        }
+
+        .wander-visual {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: minmax(170px, 0.8fr) 1fr;
+            gap: 24px;
+            align-items: center;
+            margin-top: 16px;
+        }
+
+        .radar {
+            width: min(180px, 100%);
+            aspect-ratio: 1;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at center, #4da3ff 0 7%, rgba(77,163,255,0.32) 8% 13%, transparent 14%),
+                repeating-radial-gradient(circle at center, rgba(126,162,114,0.18) 0 22%, rgba(126,162,114,0.32) 23% 24%, transparent 25% 38%),
+                conic-gradient(from 30deg, rgba(126,162,114,0.18), rgba(255,250,239,0.6), rgba(126,162,114,0.16));
+            border: 1px solid rgba(126,162,114,0.2);
+            position: relative;
+        }
+
+        .radar span {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            display: grid;
+            place-items: center;
+            color: #6d8d61;
+            font-size: 22px;
+        }
+
+        .radar span:nth-child(1) { left: 18%; top: 24%; }
+        .radar span:nth-child(2) { right: 18%; top: 16%; }
+        .radar span:nth-child(3) { left: 16%; bottom: 20%; }
+
+        .wander-list {
+            display: grid;
+            gap: 14px;
+            color: #9f5c27;
+            font-weight: 850;
+            font-size: 17px;
+        }
+
+        .wander-list div {
+            display: grid;
+            grid-template-columns: 32px 1fr;
+            align-items: center;
+            gap: 12px;
+        }
+
         .mode-action {
-            grid-column: 2;
+            grid-column: 1 / -1;
             justify-self: end;
-            min-height: 56px;
+            min-height: 54px;
             display: inline-flex;
             align-items: center;
             gap: 14px;
@@ -297,7 +407,6 @@
         }
 
         .wander .mode-action {
-            color: #c77832;
             border-color: rgba(199, 120, 50, 0.28);
         }
 
@@ -306,6 +415,7 @@
         }
 
         .features {
+            width: min(90vw, 1400px);
             margin: 0 auto 30px;
             padding: clamp(24px, 4vw, 38px);
             border-radius: 30px;
@@ -332,7 +442,7 @@
         .feature {
             display: grid;
             grid-template-columns: 64px 1fr;
-            gap: 14px;
+            gap: 20px;
             align-items: center;
             min-width: 0;
         }
@@ -366,18 +476,27 @@
         }
 
         @media (max-width: 980px) {
-            .hero {
-                grid-template-columns: 1fr;
-                min-height: auto;
-                background:
-                    linear-gradient(180deg, rgba(255, 250, 239, 0.97), rgba(255, 250, 239, 0.52)),
-                    url("{{ url_for('static', filename='images/soulpath-home-hero.png') }}") center / cover no-repeat;
+            .hero-card {
+                width: min(94vw, 1400px);
+                aspect-ratio: auto;
+                min-height: 720px;
             }
 
-            .spot-list {
-                justify-self: start;
-                width: 100%;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+            .hero-bg {
+                object-position: 62% center;
+            }
+
+            .hero-card::after {
+                background: linear-gradient(180deg, rgba(255, 250, 239, 0.9) 0%, rgba(255, 250, 239, 0.55) 58%, rgba(255, 250, 239, 0.18) 100%);
+            }
+
+            .hero-overlay {
+                width: auto;
+                max-width: 620px;
+                left: clamp(24px, 6vw, 56px);
+                right: clamp(24px, 6vw, 56px);
+                top: 44px;
+                transform: none;
             }
 
             .modes,
@@ -388,44 +507,36 @@
 
         @media (max-width: 640px) {
             .page { padding: 14px; }
-            .hero { padding: 34px 22px; border-radius: 26px; }
-            .logo { font-size: clamp(60px, 20vw, 96px); }
+            .hero-card {
+                border-radius: 26px;
+                min-height: 760px;
+            }
+
+            .logo { font-size: clamp(58px, 20vw, 94px); }
             .subtitle { letter-spacing: 0.06em; }
             .subtitle::before,
             .subtitle::after { width: 30px; }
+            .slogan { font-size: 24px; }
             .hero-actions { flex-direction: column; }
             .hero-btn { width: 100%; }
-            .spot-list { grid-template-columns: 1fr; }
             .mode-card { grid-template-columns: 1fr; }
-            .mode-action { grid-column: 1; justify-self: stretch; justify-content: space-between; }
-            .mode-visual { flex-wrap: wrap; justify-content: flex-start; }
-            .route-line { min-width: 72px; }
+            .journey-map { grid-template-columns: 1fr auto 1fr; }
+            .journey-map .route-pin:nth-of-type(3),
+            .journey-map .route-line:nth-of-type(4) { display: none; }
+            .wander-visual { grid-template-columns: 1fr; }
+            .mode-action { justify-self: stretch; justify-content: space-between; }
         }
     </style>
 </head>
 <body>
     <main class="page">
-        <section class="hero">
-            <div class="hero-copy">
-                <h1 class="logo">SoulPath</h1>
-                <div class="subtitle">情緒導航與療癒探索系統</div>
-                <p class="slogan">
-                    有時候，<br>
-                    你需要的不是最快的路，<br>
-                    而是一條能讓自己 <strong>慢下來</strong> 的路。
-                </p>
+        <section class="hero-card">
+            <img class="hero-bg" src="{{ url_for('static', filename='images/soulpath-hero-card-new.png') }}" alt="SoulPath 河岸散步主視覺">
+            <div class="hero-overlay">
                 <div class="hero-actions">
-                    <a class="hero-btn primary" href="#modes">🍃 開始療癒探索</a>
+                    <a class="hero-btn primary" href="/wander">🌿 開始療癒探索</a>
                     <a class="hero-btn secondary" href="/saved">☆ 查看收藏路線</a>
                 </div>
-            </div>
-
-            <div class="spot-list" aria-label="療癒探索類型">
-                <div class="spot"><span class="spot-icon">🌲</span>公園散步</div>
-                <div class="spot"><span class="spot-icon">📖</span>文青書店</div>
-                <div class="spot"><span class="spot-icon">〰</span>河岸步道</div>
-                <div class="spot"><span class="spot-icon">☕</span>特色咖啡廳</div>
-                <div class="spot"><span class="spot-icon">♡</span>療癒景點</div>
             </div>
         </section>
 
@@ -436,13 +547,16 @@
                     <h2>旅行模式</h2>
                     <p>從起點到終點，安排療癒探索旅程。</p>
                 </div>
-                <div class="mode-visual">
-                    <span>台北車站</span>
+                <div class="journey-map">
+                    <span class="route-pin">📍</span>
                     <span class="route-line"></span>
                     <span class="route-dot">☕</span>
-                    <span class="route-dot">📖</span>
                     <span class="route-line"></span>
-                    <span>西門町</span>
+                    <span class="route-pin">🏛</span>
+                    <div class="route-labels">
+                        <span>台北車站</span>
+                        <span>西門町</span>
+                    </div>
                 </div>
                 <div class="mode-action">開始規劃 <span>→</span></div>
             </a>
@@ -453,13 +567,13 @@
                     <h2>漫遊模式</h2>
                     <p>沒有目的地也沒關係。從你所在的位置出發，依照情緒與時間，探索屬於自己的療癒角落。</p>
                 </div>
-                <div class="mode-visual">
-                    <span class="route-dot">🌲</span>
-                    <span class="route-line"></span>
-                    <span class="route-dot">◎</span>
-                    <span class="route-line"></span>
-                    <span class="route-dot">⏱</span>
-                    <span class="route-dot">🚶</span>
+                <div class="wander-visual">
+                    <div class="radar"><span>🌲</span><span>🌳</span><span>🌲</span></div>
+                    <div class="wander-list">
+                        <div><span>⏱</span><span>設定放鬆時間</span></div>
+                        <div><span>🚶</span><span>選擇步行範圍</span></div>
+                        <div><span>⟳</span><span>生成療癒路線</span></div>
+                    </div>
                 </div>
                 <div class="mode-action">開始漫遊 <span>→</span></div>
             </a>
@@ -487,5 +601,71 @@
             </div>
         </section>
     </main>
+
+<audio id="bgm" loop>
+    <source src="{{ url_for('static', filename='audio/lofi.mp3') }}" type="audio/mpeg">
+</audio>
+
+<button id="music-toggle" type="button">🔇</button>
+
+<script>
+(function () {
+    const bgm = document.getElementById("bgm");
+    const toggle = document.getElementById("music-toggle");
+
+    bgm.volume = 1;
+
+    const savedTime = localStorage.getItem("soulpath_bgm_time");
+    const shouldPlay = localStorage.getItem("soulpath_bgm_playing") === "true";
+
+    if (savedTime) {
+        bgm.currentTime = parseFloat(savedTime);
+    }
+
+    function saveState(isPlaying) {
+        localStorage.setItem("soulpath_bgm_time", bgm.currentTime);
+        localStorage.setItem("soulpath_bgm_playing", isPlaying ? "true" : "false");
+        toggle.textContent = isPlaying ? "🔊" : "🔇";
+    }
+
+    function startMusic() {
+        bgm.play().then(() => {
+            saveState(true);
+        }).catch(() => {
+            saveState(false);
+        });
+    }
+
+    function stopMusic() {
+        bgm.pause();
+        saveState(false);
+    }
+
+    // Resume only once after page load, not on every button click
+    if (shouldPlay) {
+        startMusic();
+    } else {
+        toggle.textContent = "🔇";
+    }
+
+    // Only the music button controls pause/play
+    toggle.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (bgm.paused) {
+            startMusic();
+        } else {
+            stopMusic();
+        }
+    });
+
+    // Save current time without changing play/pause state
+    setInterval(() => {
+        localStorage.setItem("soulpath_bgm_time", bgm.currentTime);
+    }, 500);
+})();
+</script>
+
 </body>
 </html>

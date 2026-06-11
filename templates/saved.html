@@ -4,6 +4,32 @@
     <meta charset="UTF-8">
     <title>SoulPath — 收藏路線</title>
     <style>
+        #music-toggle {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+
+            z-index: 99999;
+
+            width: 48px;
+            height: 48px;
+
+            border: 1px solid rgba(45, 102, 112, 0.18);
+            border-radius: 50%;
+
+            background: rgba(255, 250, 240, 0.88);
+            color: #1f525b;
+
+            font-size: 20px;
+            cursor: pointer;
+
+            box-shadow: 0 14px 32px rgba(47, 77, 70, 0.18);
+            backdrop-filter: blur(10px);
+        }
+
+        #music-toggle:hover {
+            transform: translateY(-2px);
+        }
         :root {
             --teal: #2bc4b6; --teal-dark: #1fa99c;
             --soft-bg: #f7f5f2; --card-bg: #ffffff;
@@ -77,8 +103,8 @@
             position: fixed;
             inset: 0;
             pointer-events: none;
-            background: url("{{ url_for('static', filename='images/soulpath-page-bg.png') }}") center / cover no-repeat;
-            opacity: 0.6;
+            background: url("{{ url_for('static', filename='images/soulpath-home-bg1.png') }}") center / cover no-repeat;
+            opacity: 0.2;
         }
         .topbar {
             position: sticky; top: 0; z-index: 2;
@@ -210,6 +236,71 @@
         </div>
     {% endif %}
 </div>
+
+<audio id="bgm" loop>
+    <source src="{{ url_for('static', filename='audio/lofi.mp3') }}" type="audio/mpeg">
+</audio>
+
+<button id="music-toggle" type="button">🔇</button>
+
+<script>
+(function () {
+    const bgm = document.getElementById("bgm");
+    const toggle = document.getElementById("music-toggle");
+
+    bgm.volume = 1;
+
+    const savedTime = localStorage.getItem("soulpath_bgm_time");
+    const shouldPlay = localStorage.getItem("soulpath_bgm_playing") === "true";
+
+    if (savedTime) {
+        bgm.currentTime = parseFloat(savedTime);
+    }
+
+    function saveState(isPlaying) {
+        localStorage.setItem("soulpath_bgm_time", bgm.currentTime);
+        localStorage.setItem("soulpath_bgm_playing", isPlaying ? "true" : "false");
+        toggle.textContent = isPlaying ? "🔊" : "🔇";
+    }
+
+    function startMusic() {
+        bgm.play().then(() => {
+            saveState(true);
+        }).catch(() => {
+            saveState(false);
+        });
+    }
+
+    function stopMusic() {
+        bgm.pause();
+        saveState(false);
+    }
+
+    // Resume only once after page load, not on every button click
+    if (shouldPlay) {
+        startMusic();
+    } else {
+        toggle.textContent = "🔇";
+    }
+
+    // Only the music button controls pause/play
+    toggle.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (bgm.paused) {
+            startMusic();
+        } else {
+            stopMusic();
+        }
+    });
+
+    // Save current time without changing play/pause state
+    setInterval(() => {
+        localStorage.setItem("soulpath_bgm_time", bgm.currentTime);
+    }, 500);
+})();
+</script>
 
 </body>
 </html>

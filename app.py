@@ -23,8 +23,7 @@ LATEST_ROUTE_CONTEXT = None
 
 def estimate_walking_minutes(distance_m):
     walk_speed_m_per_min = 70
-    campus_factor = 1.4
-    return max(1, math.ceil((distance_m or 0) / walk_speed_m_per_min * campus_factor))
+    return max(1, math.ceil((distance_m or 0) / walk_speed_m_per_min))
 
 
 def _parse_relaxation_hours(value):
@@ -71,21 +70,29 @@ def _build_route_segments(route_data, waypoint_details, mode_name, end_label=Non
     stops = [{"name": "出發地", "stay_minutes": 0}] + waypoint_details + [
         {"name": end_label, "stay_minutes": 0}
     ]
+
     legs = route_data.get("legs") or []
     leg_geometries = route_data.get("leg_geometries") or []
     segments = []
+
     for idx in range(len(stops) - 1):
         raw_distance = 0
-        if idx < len(legs):
-            raw_distance = legs[idx].get("distance", 0)
-        
         raw_duration = 0
-        if idx < len(legs):
-            raw_duration = legs[idx].get("duration", 0)
 
-        walking_minutes = max(1, math.ceil(raw_duration / 60))
-        
-        walking_minutes = estimate_walking_minutes(raw_distance)
+        if idx < len(legs):
+            raw_distance = legs[idx].get("distance", 0) or 0
+            raw_duration = legs[idx].get("duration", 0) or 0
+
+        distance_minutes = estimate_walking_minutes(raw_distance)
+        duration_minutes = max(1, math.ceil(raw_duration / 60)) if raw_duration else distance_minutes
+
+        # 如果 OSRM duration 明顯不合理，就改用 distance 推估
+        ratio = duration_minutes / distance_minutes if distance_minutes else 1
+        if 0.5 <= ratio <= 1.8:
+            walking_minutes = duration_minutes
+        else:
+            walking_minutes = distance_minutes
+
         segments.append({
             "from": stops[idx]["name"],
             "to": stops[idx + 1]["name"],
@@ -95,6 +102,7 @@ def _build_route_segments(route_data, waypoint_details, mode_name, end_label=Non
             "mode_name": mode_name,
             "geometry": leg_geometries[idx] if idx < len(leg_geometries) else [],
         })
+
     return segments
 
 
@@ -188,6 +196,10 @@ def build_route_incrementally(start_coords, end_coords, candidates, relaxation_m
             route_data, trial_waypoints, max_walk_minutes
         )
         if not walk_ok:
+            print("[單點跳過] 步行超限", candidate["name"])
+            for segment in segments:
+                if segment["walking_minutes"] > max_walk_minutes:
+                    print("  ", segment["from"], "->", segment["to"], segment["walking_minutes"], "min")
             remember_fallback(route_data, ordered_waypoints, segments)
             continue
 
@@ -212,48 +224,127 @@ def build_route_incrementally(start_coords, end_coords, candidates, relaxation_m
     if total_max >= int(relaxation_minutes) - tolerance:
         return best_waypoints, best_route, None
 
-    used_keys = {_place_key(wp.get("name")) for wp in best_waypoints}
-    used_categories = {wp.get("category") or wp.get("type") for wp in best_waypoints}
+    route_warning = None
 
-    for candidate in candidates:
-        candidate_key = _place_key(candidate.get("name"))
-        if candidate_key in used_keys:
-            continue
-        candidate_category = candidate.get("category") or candidate.get("type")
-        if candidate_category in used_categories:
-            continue
+    def category_allowed(candidate_category, waypoint_details, max_per_category):
+        if max_per_category is None:
+            return True
 
-        trial_waypoints = best_waypoints + [dict(candidate)]
-        route_data = get_route_matrix_v2(
-            start_coords,
-            end_coords,
-            [wp["coords"] for wp in trial_waypoints],
+        count = sum(
+            1 for waypoint in waypoint_details
+            if (waypoint.get("category") or waypoint.get("type")) == candidate_category
         )
-        if not route_data:
-            continue
+        return count < max_per_category
 
-        walk_ok, segments, ordered_waypoints = _route_is_walkable(
-            route_data, trial_waypoints, max_walk_minutes
+    def try_expand_route(max_per_category):
+        nonlocal best_waypoints, best_route
+
+        for candidate in candidates:
+            candidate_key = _place_key(candidate.get("name"))
+            if candidate_key in {_place_key(wp.get("name")) for wp in best_waypoints}:
+                continue
+
+            candidate_category = candidate.get("category") or candidate.get("type")
+            if not category_allowed(candidate_category, best_waypoints, max_per_category):
+                print("[跳過] 類別限制", candidate["name"], candidate_category)
+                continue
+
+            trial_waypoints = best_waypoints + [dict(candidate)]
+            route_data = get_route_matrix_v2(
+                start_coords,
+                end_coords,
+                [wp["coords"] for wp in trial_waypoints],
+            )
+            if not route_data:
+                continue
+
+            walk_ok, segments, ordered_waypoints = _route_is_walkable(
+                route_data, trial_waypoints, max_walk_minutes
+            )
+            if not walk_ok:
+                print("[跳過] 步行超限", candidate["name"])
+                for segment in segments:
+                    if segment["walking_minutes"] > max_walk_minutes:
+                        print("  ", segment["from"], "->", segment["to"], segment["walking_minutes"], "min")
+                remember_fallback(route_data, ordered_waypoints, segments)
+                continue
+
+            walking_minutes = sum(segment["walking_minutes"] for segment in segments)
+            total_max, _, _ = _total_with_max_stay(
+                ordered_waypoints, walking_minutes, relaxation_minutes
+            )
+
+            best_waypoints = ordered_waypoints
+            best_route = dict(route_data)
+            best_route["optimized_order"] = []
+
+            print("[加入景點]", candidate["name"], "total_max =", total_max)
+
+            if total_max >= int(relaxation_minutes) - tolerance:
+                return True
+
+        return False
+
+    final_limit = 1
+    final_total_max = 0
+    category_limits = [1, 2, 3, 4, None]
+
+    for limit in category_limits:
+        final_limit = limit
+        if limit == 1:
+            print("[類別限制] 同類別最多 1 個")
+        elif limit is None:
+            print("[放寬類別限制] 時間不足，取消同類別數量限制")
+        else:
+            print(f"[放寬類別限制] 時間不足，允許同類別最多 {limit} 個")
+
+        try_expand_route(max_per_category=limit)
+
+        final_segments = _build_route_segments(best_route, best_waypoints, "SoulPath")
+        final_walk = sum(s["walking_minutes"] for s in final_segments)
+        final_total_max, _, _ = _total_with_max_stay(
+            [dict(wp) for wp in best_waypoints],
+            final_walk,
+            relaxation_minutes
         )
-        if not walk_ok:
-            remember_fallback(route_data, ordered_waypoints, segments)
-            continue
 
-        walking_minutes = sum(segment["walking_minutes"] for segment in segments)
-        total_max, _, _ = _total_with_max_stay(
-            ordered_waypoints, walking_minutes, relaxation_minutes
-        )
+        print("[類別限制檢查]", "limit =", limit, "final_total_max =", final_total_max)
 
-        best_waypoints = ordered_waypoints
-        best_route = dict(route_data)
-        best_route["optimized_order"] = []
-        used_keys = {_place_key(wp.get("name")) for wp in best_waypoints}
-        used_categories = {wp.get("category") or wp.get("type") for wp in best_waypoints}
-
-        if total_max >= int(relaxation_minutes) - tolerance:
+        if final_total_max >= int(relaxation_minutes) - tolerance:
             break
 
-    return best_waypoints, best_route, None
+    if final_limit is None or final_limit >= 2:
+        route_warning = (
+            "因你設定的最多連續步行時間較短，因此路線類型可能較集中，"
+            "若希望景點更多元，建議增加最多連續步行時間。"
+        )
+
+    final_segments = _build_route_segments(best_route, best_waypoints, "SoulPath")
+    final_walk = sum(s["walking_minutes"] for s in final_segments)
+
+    final_total_max, final_stay_max, final_buffer = _total_with_max_stay(
+        [dict(wp) for wp in best_waypoints],
+        final_walk,
+        relaxation_minutes
+    )
+
+    print("[最終擴充檢查]")
+    print("target =", relaxation_minutes)
+    print("target_range =", int(relaxation_minutes) - tolerance, "~", int(relaxation_minutes) + tolerance)
+    print("final_total_max =", final_total_max)
+    print("final_walk =", final_walk)
+    print("final_stay_max =", final_stay_max)
+    print("final_buffer =", final_buffer)
+    print("waypoints =", [wp["name"] for wp in best_waypoints])
+
+    if final_total_max < int(relaxation_minutes) - tolerance:
+        return (
+            best_waypoints,
+            best_route,
+            "目前的最多連續步行時間限制較短，系統已盡力安排最接近的路線，但仍無法達到預計放鬆時長。\n若希望路線更完整，請增加「最多連續步行」分鐘數後重新生成。"
+        )
+
+    return best_waypoints, best_route, route_warning
 
 
 def _remove_walk_limit_offender(waypoint_details, route_segments, max_walk_minutes):
@@ -426,6 +517,12 @@ def _route_landing_endpoint():
     return "wander"
 
 
+def _redirect_to_current_route():
+    if LATEST_ROUTE_CONTEXT:
+        return redirect(url_for("current_route"))
+    return redirect(url_for(_route_landing_endpoint()))
+
+
 def _hydrate_route_context(snapshot):
     if not snapshot or not snapshot.get("route_data"):
         return None
@@ -478,13 +575,19 @@ def _refresh_route_context(waypoint_details):
     mood = LATEST_ROUTE_CONTEXT.get("mood", "放鬆")
     mode_name = LATEST_ROUTE_CONTEXT.get("mode_name", "SoulPath 路線")
     end_label = LATEST_ROUTE_CONTEXT.get("end_place") or "回到起點附近"
+    is_journey = LATEST_ROUTE_CONTEXT.get("journey_type") == "journey"
     route_segments = _build_route_segments(route_data, waypoint_details, mode_name, end_label)
     walking_minutes = sum(segment["walking_minutes"] for segment in route_segments)
-    base_stay_minutes = sum(int(wp.get("stay_minutes", 0)) for wp in waypoint_details)
-    relaxation_minutes = int(LATEST_ROUTE_CONTEXT.get("relaxation_minutes") or walking_minutes + base_stay_minutes)
-    stay_minutes, buffer_minutes, total_minutes = _compute_time_totals(
-        waypoint_details, walking_minutes, relaxation_minutes
-    )
+    if is_journey:
+        stay_minutes = 0
+        buffer_minutes = 0
+        total_minutes = walking_minutes
+    else:
+        base_stay_minutes = sum(int(wp.get("stay_minutes") or 0) for wp in waypoint_details)
+        relaxation_minutes = int(LATEST_ROUTE_CONTEXT.get("relaxation_minutes") or walking_minutes + base_stay_minutes)
+        stay_minutes, buffer_minutes, total_minutes = _compute_time_totals(
+            waypoint_details, walking_minutes, relaxation_minutes
+        )
     km_distance = round(route_data["distance"] / 1000, 2)
     itinerary = _build_itinerary(
         LATEST_ROUTE_CONTEXT.get("start_place", ""),
@@ -868,7 +971,7 @@ def save():
                float(distance), int(duration), waypoints, int(relaxation_minutes), exploration_mode,
                int(max_walk_minutes), environment_preference, saved_relaxation_hours, snapshot=snapshot)
     flash("✨ 路線已收藏成功！可點上方「收藏路線」查看。", "success")
-    return redirect(request.referrer or url_for(_route_landing_endpoint()))
+    return _redirect_to_current_route()
 
 
 @app.route('/place/like', methods=['GET', 'POST'])
@@ -887,18 +990,27 @@ def like():
         flash(f"已加入喜歡景點：{place['name']}。可點上方「記憶管理」查看。", "success")
     if LATEST_ROUTE_CONTEXT and LATEST_ROUTE_CONTEXT.get("itinerary"):
         LATEST_ROUTE_CONTEXT["itinerary"] = _annotate_liked_places(LATEST_ROUTE_CONTEXT["itinerary"])
-    return redirect(request.referrer or url_for(_route_landing_endpoint()))
+    return _redirect_to_current_route()
 
 
 @app.route('/place/block', methods=['GET', 'POST'])
 def block():
+    global LATEST_ROUTE_CONTEXT
     place = {
         "name": request.values.get("name"),
         "category": request.values.get("category"),
     }
     block_place(place)
+    if LATEST_ROUTE_CONTEXT and place.get("name"):
+        blocked_key = _place_key(place["name"])
+        waypoint_details = [
+            waypoint for waypoint in LATEST_ROUTE_CONTEXT.get("waypoints", [])
+            if _place_key(waypoint.get("name")) != blocked_key
+        ]
+        if len(waypoint_details) != len(LATEST_ROUTE_CONTEXT.get("waypoints", [])):
+            _refresh_route_context(waypoint_details)
     flash(f"已加入黑名單：{place['name']}。可點上方「記憶管理」查看。", "info")
-    return redirect(request.referrer or url_for(_route_landing_endpoint()))
+    return _redirect_to_current_route()
 
 
 @app.route('/route/reorder', methods=['POST'])
